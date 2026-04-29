@@ -232,6 +232,70 @@ function renderTopInfo(topInfo) {
   document.getElementById('home-today-schedule').innerHTML = renderTodaySchedule(topInfo?.todaySchedule || topInfo?.todayLabel);
 }
 
+async function loadView(view) {
+  state.currentView = view;
+
+  el.pageTitle.textContent = VIEW_TITLES[view] || 'ホーム';
+
+  el.navButtons.forEach((button) => {
+    button.classList.toggle('active', button.dataset.view === view);
+  });
+
+  Object.entries(el.views).forEach(([key, section]) => {
+    if (!section) return;
+    section.classList.toggle('active', key === view);
+  });
+
+  closeSidebar();
+  setError('');
+
+  if (view === 'home') {
+    await loadHome();
+    return;
+  }
+
+  if (el.views[view]) {
+    el.views[view].innerHTML = placeholder(view);
+  }
+}
+
+async function loadHome() {
+  setLoading(true);
+  setError('');
+
+  try {
+    const days = state.dueDays || window.APP_CONFIG.DEFAULT_DUE_DAYS || 7;
+
+    document.getElementById('due-days').value = days;
+    document.getElementById('due-task-title').textContent = `${days}日以内のタスク`;
+
+    const [topInfo, summary, dueTasks, unresolvedQuestions, lineShare] = await Promise.all([
+      apiGet('getHomeTopInfo'),
+      apiGet('getHomeSummary', { days }),
+      apiGet('getTasksDueWithinDays', { days }),
+      apiGet('getUnresolvedQuestions'),
+      apiGet('getLineShareText', { days }),
+    ]);
+
+    renderTopInfo(topInfo || {});
+
+    document.getElementById('home-incomplete-count').textContent = summary?.incompleteTaskCount ?? 0;
+    document.getElementById('home-near-due-count').textContent = summary?.nearDueTaskCount ?? 0;
+    document.getElementById('home-question-count').textContent = summary?.unresolvedQuestionCount ?? 0;
+
+    document.getElementById('due-task-list').innerHTML = renderTaskRows(dueTasks || []);
+    document.getElementById('unresolved-question-list').innerHTML = renderQuestionRows(unresolvedQuestions || []);
+
+    state.lineShareText = lineShare?.text || '';
+
+    bindRowModals();
+  } catch (err) {
+    console.error(err);
+    setError(err.message || 'ホーム画面の読み込みに失敗しました。');
+  } finally {
+    setLoading(false);
+  }
+}
 
 function setupHomeEvents() {
   document.getElementById('home-refresh').addEventListener('click', () => loadView('home'));
