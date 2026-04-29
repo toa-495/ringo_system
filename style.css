@@ -838,3 +838,25 @@ button {
   gap: 8px;
   margin-top: 12px;
 }
+
+.milestone-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+}
+
+.milestone-cell {
+  background: #111;
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.phase {
+  font-size: 12px;
+  color: #aaa;
+}
+
+.task {
+  font-size: 14px;
+  font-weight: bold;
+}
