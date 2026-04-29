@@ -30,7 +30,7 @@
 
         <div class="sidebar-note">
           <strong>今の実装段階</strong>
-          <p>まずはホーム画面。次にタスク読むだけ版へ進みます。</p>
+          <p>ホーム画面をスプシ仕様に合わせて調整中です。</p>
         </div>
       </aside>
 
@@ -47,9 +47,24 @@
 
         <main id="app">
           <section id="view-home" class="view active" aria-labelledby="page-title">
-            <section class="home-hero">
-              <div>
+            <section class="today-panel">
+              <div class="today-main-card">
                 <p class="eyebrow">Today</p>
+                <h3 id="home-today-label">今日の日程</h3>
+                <div id="home-today-schedule" class="today-schedule">
+                  <p class="meta">読み込み中...</p>
+                </div>
+              </div>
+              <div class="countdown-card">
+                <p class="summary-label">林檎の唄。まで</p>
+                <p><span id="home-days-left" class="countdown-number">-</span><span class="countdown-unit">日</span></p>
+                <p id="home-current-phase" class="phase-text">現在フェイズを読み込み中...</p>
+              </div>
+            </section>
+
+            <section class="home-hero compact-hero">
+              <div>
+                <p class="eyebrow">Dashboard</p>
                 <h3>現在の状況</h3>
                 <p class="lead">指定した日数以内のタスクと、未解決の疑問をまとめて確認できます。</p>
               </div>
@@ -82,15 +97,15 @@
               </div>
             </section>
 
-            <section class="card line-card">
-              <div class="section-head">
+            <section class="card line-card compact-line-card">
+              <div class="section-head no-margin">
                 <div>
                   <p class="eyebrow">LINE Share</p>
                   <h3>LINE送信用文章</h3>
+                  <p class="meta">ホーム画面🍎 I5 の文章をそのままコピーします。</p>
                 </div>
                 <button id="copy-line" class="btn-primary">コピー</button>
               </div>
-              <textarea id="line-share-text" class="textarea" readonly placeholder="読み込み後、ここにLINE送信用の文章が表示されます。"></textarea>
               <p id="copy-result" class="notice hidden">コピーしました。</p>
             </section>
 

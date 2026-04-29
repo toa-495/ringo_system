@@ -526,3 +526,98 @@ button {
     justify-content: start;
   }
 }
+
+.today-panel {
+  display: grid;
+  grid-template-columns: 1.45fr 0.85fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.today-main-card,
+.countdown-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
+
+.today-main-card {
+  padding: 17px;
+  background: linear-gradient(135deg, #fff 0%, #fff7f2 100%);
+}
+
+.today-main-card h3 {
+  margin: 0 0 10px;
+  font-size: 1.15rem;
+}
+
+.countdown-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 15px;
+  background: linear-gradient(160deg, #c93434 0%, #9f2424 100%);
+  color: #fff;
+}
+
+.countdown-card .summary-label,
+.countdown-card .phase-text {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.countdown-card p {
+  margin: 0;
+}
+
+.countdown-number {
+  font-size: 2.7rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.countdown-unit {
+  margin-left: 4px;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.phase-text {
+  margin-top: 9px !important;
+  line-height: 1.55;
+  font-size: 0.86rem;
+}
+
+.today-schedule {
+  color: var(--text);
+}
+
+.today-list {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding-left: 1.15em;
+  line-height: 1.55;
+}
+
+.compact-hero {
+  padding: 15px 16px;
+}
+
+.compact-line-card {
+  padding-bottom: 14px;
+}
+
+.no-margin {
+  margin-bottom: 0;
+}
+
+@media (max-width: 620px) {
+  .today-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .countdown-card {
+    min-height: 132px;
+  }
+}

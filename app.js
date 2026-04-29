@@ -123,6 +123,18 @@ function placeholder(view) {
   `;
 }
 
+function renderTodaySchedule(items) {
+  if (!items || items.length === 0) {
+    return '<p class="meta">今日の予定はまだ入っていません。</p>';
+  }
+
+  return `
+    <ul class="today-list">
+      ${items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}
+    </ul>
+  `;
+}
+
 function renderTaskRows(tasks) {
   if (!tasks || tasks.length === 0) {
     return '<p class="meta">指定日数以内のタスクはありません。</p>';
@@ -160,9 +172,9 @@ function renderQuestionRows(questions) {
 
   return questions.map((question) => {
     const text = escapeHtml(question.question || question.content || '無題の疑問');
-    const owner = escapeHtml(question.assignee || question.owner || question.questioner || '未定');
-    const due = escapeHtml(question.priority || question.due || question.deadline || '');
-    const memo = escapeHtml(question.memo || question.answer || '');
+    const owner = escapeHtml(question.owner || question.assignee || question.questioner || '未定');
+    const due = escapeHtml(question.due || question.priority || question.deadline || '');
+    const answer = escapeHtml(question.answer || question.memo || '');
 
     return `
       <button class="data-row question-row" type="button" data-modal="question" data-payload='${escapeHtml(JSON.stringify(question))}'>
@@ -174,7 +186,7 @@ function renderQuestionRows(questions) {
           ${due ? `<span>${due}</span>` : '<span>期限未設定</span>'}
         </div>
       </button>
-      ${memo ? `<p class="row-memo">${memo}</p>` : ''}
+      ${answer ? `<p class="row-memo">${answer}</p>` : ''}
     `;
   }).join('');
 }
@@ -201,23 +213,31 @@ function bindRowModals() {
   });
 }
 
+function renderTopInfo(topInfo) {
+  document.getElementById('home-today-label').textContent = topInfo?.todayLabel || '今日の日程';
+  document.getElementById('home-days-left').textContent = topInfo?.daysUntilEvent ?? '-';
+  document.getElementById('home-current-phase').textContent = topInfo?.currentPhase || '現在フェイズ未設定';
+  document.getElementById('home-today-schedule').innerHTML = renderTodaySchedule(topInfo?.todaySchedule || []);
+}
+
 async function renderHome() {
   const days = state.dueDays;
-  const [summary, dueTasks, unresolved, share] = await Promise.all([
+  const [topInfo, summary, dueTasks, unresolved, share] = await Promise.all([
+    apiGet('getHomeTopInfo'),
     apiGet('getHomeSummary', { days }),
     apiGet('getTasksDueWithinDays', { days }),
     apiGet('getUnresolvedQuestions'),
-    apiGet('getLineShareText', { days }),
+    apiGet('getLineShareText'),
   ]);
 
   state.lineShareText = share?.text || '';
 
+  renderTopInfo(topInfo);
   document.getElementById('home-incomplete-count').textContent = summary?.incompleteTaskCount ?? 0;
   document.getElementById('home-near-due-count').textContent = summary?.nearDueTaskCount ?? dueTasks?.length ?? 0;
   document.getElementById('home-question-count').textContent = summary?.unresolvedQuestionCount ?? unresolved?.length ?? 0;
   document.getElementById('due-days').value = days;
   document.getElementById('due-task-title').textContent = `${days}日以内のタスク`;
-  document.getElementById('line-share-text').value = state.lineShareText;
   document.getElementById('due-task-list').innerHTML = renderTaskRows(dueTasks);
   document.getElementById('unresolved-question-list').innerHTML = renderQuestionRows(unresolved);
 
@@ -260,8 +280,7 @@ function setupHomeEvents() {
     if (event.key === 'Enter') document.getElementById('home-apply-days').click();
   });
   document.getElementById('copy-line').addEventListener('click', async () => {
-    const text = document.getElementById('line-share-text').value || state.lineShareText || '';
-    await navigator.clipboard.writeText(text);
+    await navigator.clipboard.writeText(state.lineShareText || '');
     const result = document.getElementById('copy-result');
     result.classList.remove('hidden');
     setTimeout(() => result.classList.add('hidden'), 1800);
