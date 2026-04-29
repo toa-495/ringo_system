@@ -832,17 +832,18 @@ async function loadMilestones() {
           <div>
             <p class="eyebrow">Milestones</p>
             <h3>マイルストーン</h3>
+            <p class="meta">スプレッドシートのマイルストーン表をそのまま表示しています。</p>
           </div>
         </div>
 
-        <div class="milestone-grid">
+        <div class="milestone-sheet-wrap">
           ${renderMilestoneGrid(data)}
         </div>
       </section>
     `;
   } catch (err) {
     console.error(err);
-    setError('読み込み失敗');
+    setError(err.message || 'マイルストーンの読み込みに失敗しました。');
   } finally {
     setLoading(false);
   }
@@ -1047,26 +1048,25 @@ function openGuestEditModal(guest = null) {
 }
 
 function renderMilestoneGrid(data) {
-  const phases = data.phases || [];
-  const tasks = data.tasks || [];
+  const rows = data.rows || [];
 
-  let html = '';
-
-  for (let i = 0; i < phases.length; i++) {
-    const phase = phases[i];
-    const task = tasks[i];
-
-    if (!phase && !task) continue;
-
-    html += `
-      <div class="milestone-cell">
-        ${phase ? `<div class="phase">${escapeHtml(phase)}</div>` : ''}
-        ${task ? `<div class="task">${escapeHtml(task)}</div>` : ''}
-      </div>
-    `;
+  if (!rows.length) {
+    return '<p class="meta">マイルストーンが登録されていません。</p>';
   }
 
-  return html;
+  return `
+    <table class="milestone-sheet">
+      <tbody>
+        ${rows.map((row, rowIndex) => `
+          <tr class="milestone-sheet-row milestone-sheet-row-${rowIndex + 2}">
+            ${row.map(cell => `
+              <td>${escapeHtml(cell || '')}</td>
+            `).join('')}
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
 }
 
 setupHomeEvents();
