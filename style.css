@@ -1097,3 +1097,78 @@ button {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
   pointer-events: none;
 }
+
+.view-switch {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0 14px;
+}
+
+.view-switch-btn {
+  flex: 1;
+  border: 1px solid rgba(160, 160, 160, 0.35);
+  background: #fff;
+  color: #111;
+  border-radius: 999px;
+  padding: 9px 10px;
+  font-weight: 700;
+}
+
+.view-switch-btn.active {
+  background: #111;
+  color: #fff;
+}
+
+.calendar-grid-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.calendar-grid-table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: separate;
+  border-spacing: 0;
+  border-top: 1px dashed rgba(160, 160, 160, 0.4);
+  border-left: 1px dashed rgba(160, 160, 160, 0.4);
+}
+
+.calendar-grid-table th,
+.calendar-grid-table td {
+  width: 14.28%;
+  min-width: 96px;
+  padding: 6px;
+  border-right: 1px dashed rgba(160, 160, 160, 0.4);
+  border-bottom: 1px dashed rgba(160, 160, 160, 0.4);
+  vertical-align: top;
+  background: #fff;
+  color: #111;
+}
+
+.calendar-grid-table th {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.calendar-date-row td {
+  height: 28px;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.calendar-event-row td {
+  height: 72px;
+  font-size: 12px;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.calendar-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
