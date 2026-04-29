@@ -271,6 +271,11 @@ if (view === 'memos') {
   return;
 }
 
+if (view === 'guests') {
+  await loadGuests();
+  return;
+}
+
 if (el.views[view]) {
   el.views[view].innerHTML = placeholder(view);
 }
@@ -809,6 +814,141 @@ function openMemoEditModal(memo = null) {
   });
 }
 
+async function loadGuests() {
+  setLoading(true);
+  setError('');
+
+  try {
+    const guests = await apiGet('getGuests');
+
+    el.views.guests.innerHTML = `
+      <section class="card guest-page">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Guests</p>
+            <h3>来る人リスト</h3>
+            <p class="meta">来てほしい人・声かけ状況・見込みをスマホで確認できます。</p>
+          </div>
+        </div>
+
+        <div class="guest-list">
+          ${renderGuestRows(guests || [])}
+        </div>
+
+        <button id="guest-add-btn" class="floating-add-btn" type="button">＋</button>
+      </section>
+    `;
+
+    bindGuestEvents(guests || []);
+  } catch (err) {
+    console.error(err);
+    setError(err.message || '来る人リストの読み込みに失敗しました。');
+  } finally {
+    setLoading(false);
+  }
+}
+
+function renderGuestRows(guests) {
+  if (!guests.length) return '<p class="meta">登録されている人はいません。</p>';
+
+  return guests.map(guest => `
+    <div class="data-row guest-row">
+      <div class="data-main">
+        <strong>${escapeHtml(guest.name || '名前未設定')}</strong>
+        <span class="meta">
+          アタック担当：${escapeHtml(guest.attacker || '未定')}
+          ${guest.prospect ? ` / 見込み：${escapeHtml(guest.prospect)}` : ''}
+        </span>
+        ${guest.status ? `<span class="meta">状況：${escapeHtml(guest.status)}</span>` : ''}
+      </div>
+      <div class="data-sub">
+        <span>No.${escapeHtml(guest.no || '')}</span>
+        <button class="guest-edit-btn" type="button" data-guest-id="${escapeHtml(guest.id)}">✒</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function bindGuestEvents(guests) {
+  const addBtn = document.getElementById('guest-add-btn');
+  if (addBtn) {
+    addBtn.addEventListener('click', () => openGuestEditModal());
+  }
+
+  document.querySelectorAll('.guest-edit-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const guest = guests.find(item => String(item.id) === String(btn.dataset.guestId));
+      openGuestEditModal(guest);
+    });
+  });
+}
+
+function openGuestEditModal(guest = null) {
+  const isEdit = !!guest;
+
+  openModal(`
+    <p class="eyebrow">${isEdit ? '来る人を編集' : '来る人を追加'}</p>
+    <h3>${isEdit ? '来る人リストの編集' : '新しく追加'}</h3>
+
+    <div class="form-stack">
+      <label>名前
+        <input id="guest-form-name" type="text" value="${escapeHtml(guest?.name || '')}">
+      </label>
+
+      <label>アタック担当
+        <input id="guest-form-attacker" type="text" value="${escapeHtml(guest?.attacker || '')}">
+      </label>
+
+      <label>状況詳細
+        <textarea id="guest-form-status">${escapeHtml(guest?.status || '')}</textarea>
+      </label>
+
+      <label>見込み
+        <input id="guest-form-prospect" type="text" value="${escapeHtml(guest?.prospect || '')}" placeholder="S / A / B / C / D など">
+      </label>
+
+      <button id="guest-save-btn" class="primary-btn" type="button">保存</button>
+    </div>
+  `);
+
+  document.getElementById('guest-save-btn').addEventListener('click', async () => {
+    const data = {
+      name: document.getElementById('guest-form-name').value.trim(),
+      attacker: document.getElementById('guest-form-attacker').value.trim(),
+      status: document.getElementById('guest-form-status').value.trim(),
+      prospect: document.getElementById('guest-form-prospect').value.trim(),
+    };
+
+    if (!data.name && !data.attacker && !data.status && !data.prospect) {
+      setError('どれか1つは入力してください。');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError('');
+
+      if (isEdit) {
+        await apiGet('updateGuest', {
+          id: guest.id,
+          data: JSON.stringify(data),
+        });
+      } else {
+        await apiGet('addGuest', {
+          data: JSON.stringify(data),
+        });
+      }
+
+      closeModal();
+      await loadGuests();
+    } catch (err) {
+      console.error(err);
+      setError(err.message || '来る人リストの保存に失敗しました。');
+    } finally {
+      setLoading(false);
+    }
+  });
+}
 
 setupHomeEvents();
 loadView('home');
