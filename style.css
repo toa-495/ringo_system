@@ -686,3 +686,99 @@ button {
 .wbs-due-pill { align-self: center; flex: 0 0 auto; padding: 6px 8px; border-radius: 999px; background: var(--soft-primary); color: var(--primary-dark); font-size: 0.74rem; font-weight: 800; }
 .wbs-children { display: grid; gap: 6px; }
 .wbs-children.closed { display: none; }
+
+.question-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 14px 0;
+}
+
+.question-tab {
+  border: 1px solid rgba(120, 63, 28, 0.18);
+  background: #fff7ec;
+  border-radius: 999px;
+  padding: 10px 8px;
+  font-weight: 700;
+}
+
+.question-tab.active {
+  background: #d94b32;
+  color: #fff;
+}
+
+.question-manage-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.question-edit-btn {
+  border: 0;
+  background: #fff1d8;
+  border-radius: 999px;
+  width: 40px;
+  height: 40px;
+  font-size: 18px;
+}
+
+.floating-add-btn {
+  position: fixed;
+  right: 18px;
+  bottom: 22px;
+  width: 58px;
+  height: 58px;
+  border-radius: 999px;
+  border: 0;
+  background: #d94b32;
+  color: #fff;
+  font-size: 30px;
+  font-weight: 800;
+  box-shadow: 0 12px 24px rgba(120, 63, 28, 0.24);
+  z-index: 20;
+}
+
+.form-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.form-stack label {
+  display: grid;
+  gap: 6px;
+  font-weight: 700;
+}
+
+.form-stack input,
+.form-stack textarea {
+  width: 100%;
+  border: 1px solid rgba(120, 63, 28, 0.18);
+  border-radius: 14px;
+  padding: 10px 12px;
+  font: inherit;
+}
+
+.form-stack textarea {
+  min-height: 90px;
+}
+
+.check-row {
+  display: flex !important;
+  grid-template-columns: none !important;
+  align-items: center;
+  gap: 8px !important;
+}
+
+.check-row input {
+  width: auto;
+}
+
+.primary-btn {
+  border: 0;
+  border-radius: 14px;
+  padding: 12px;
+  background: #d94b32;
+  color: #fff;
+  font-weight: 800;
+}
