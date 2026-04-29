@@ -2,6 +2,8 @@ const state = {
   currentView: 'home',
   dueDays: window.APP_CONFIG.DEFAULT_DUE_DAYS || 7,
   lineShareText: '',
+  questionStatus: 'unresolved',
+  questionOptions: { owners: [], dues: [] },
 };
 
 const VIEW_TITLES = {
@@ -483,7 +485,8 @@ async function loadQuestions(status = state.questionStatus || 'unresolved') {
   setError('');
 
   try {
-    const questions = await apiGet('getQuestions', { status });
+    state.questionOptions = await apiGet('getQuestionOptions');
+const questions = await apiGet('getQuestions', { status });
 
     el.views.questions.innerHTML = `
       <section class="card question-page">
@@ -567,12 +570,26 @@ function openQuestionModal(question = null) {
       </label>
 
       <label>疑問ぬし
-        <input id="question-form-owner" type="text" value="${escapeHtml(question?.owner || '')}">
-      </label>
+  <select id="question-form-owner">
+    <option value="">選択してください</option>
+    ${(state.questionOptions.owners || []).map(owner => `
+      <option value="${escapeHtml(owner)}" ${owner === question?.owner ? 'selected' : ''}>
+        ${escapeHtml(owner)}
+      </option>
+    `).join('')}
+  </select>
+</label>
 
-      <label>いつごろまでに
-        <input id="question-form-due" type="text" value="${escapeHtml(question?.due || '')}">
-      </label>
+<label>いつごろまでに
+  <select id="question-form-due">
+    <option value="">選択してください</option>
+    ${(state.questionOptions.dues || []).map(due => `
+      <option value="${escapeHtml(due)}" ${due === question?.due ? 'selected' : ''}>
+        ${escapeHtml(due)}
+      </option>
+    `).join('')}
+  </select>
+</label>
 
       <label>回答
         <textarea id="question-form-answer">${escapeHtml(question?.answer || '')}</textarea>
