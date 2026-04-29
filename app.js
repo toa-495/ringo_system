@@ -1,18 +1,37 @@
 const state = {
   currentView: 'home',
-  dueDays: window.APP_CONFIG.DEFAULT_DUE_DAYS,
+  dueDays: window.APP_CONFIG.DEFAULT_DUE_DAYS || 7,
+  lineShareText: '',
+};
+
+const VIEW_TITLES = {
+  home: 'ホーム',
+  tasks: 'タスク関連',
+  milestones: 'マイルストーン',
+  calendar: 'カレンダー',
+  questions: '疑問箱',
+  memos: 'メモページ',
+  expenses: '経費登録',
+  guests: '来る人リスト',
 };
 
 const el = {
   loading: document.getElementById('loading'),
   error: document.getElementById('error'),
+  pageTitle: document.getElementById('page-title'),
+  sidebar: document.getElementById('sidebar'),
+  sidebarBackdrop: document.getElementById('sidebar-backdrop'),
+  sidebarOpen: document.getElementById('sidebar-open'),
+  sidebarClose: document.getElementById('sidebar-close'),
   views: {
     home: document.getElementById('view-home'),
     tasks: document.getElementById('view-tasks'),
-    schedule: document.getElementById('view-schedule'),
+    milestones: document.getElementById('view-milestones'),
+    calendar: document.getElementById('view-calendar'),
     questions: document.getElementById('view-questions'),
     memos: document.getElementById('view-memos'),
-    others: document.getElementById('view-others'),
+    expenses: document.getElementById('view-expenses'),
+    guests: document.getElementById('view-guests'),
   },
   navButtons: [...document.querySelectorAll('.nav-btn')],
   modal: document.getElementById('modal'),
@@ -23,13 +42,12 @@ const el = {
 function apiGet(action, params = {}) {
   return new Promise((resolve, reject) => {
     const callbackName = `jsonp_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
-
     const url = new URL(window.APP_CONFIG.GAS_BASE_URL);
     url.searchParams.set('action', action);
     url.searchParams.set('callback', callbackName);
 
     Object.entries(params).forEach(([key, value]) => {
-      url.searchParams.set(key, value);
+      if (value !== undefined && value !== null) url.searchParams.set(key, value);
     });
 
     const script = document.createElement('script');
@@ -38,8 +56,8 @@ function apiGet(action, params = {}) {
       delete window[callbackName];
       script.remove();
 
-      if (!json.ok) {
-        reject(new Error(json.error || 'APIエラー'));
+      if (!json || !json.ok) {
+        reject(new Error(json?.error || 'APIエラー'));
         return;
       }
 
@@ -49,7 +67,7 @@ function apiGet(action, params = {}) {
     script.onerror = () => {
       delete window[callbackName];
       script.remove();
-      reject(new Error('GAS APIの読み込みに失敗しました'));
+      reject(new Error('GAS APIの読み込みに失敗しました。GAS側がJSONP形式で返しているか確認してください。'));
     };
 
     script.src = url.toString();
@@ -57,122 +75,207 @@ function apiGet(action, params = {}) {
   });
 }
 
-function setLoading(show) { el.loading.classList.toggle('hidden', !show); }
-function setError(msg = '') {
-  el.error.textContent = msg;
-  el.error.classList.toggle('hidden', !msg);
+function setLoading(show) {
+  el.loading.classList.toggle('hidden', !show);
 }
 
-function openModal(data) {
-  el.modalBody.innerHTML = `<pre>${escapeHtml(JSON.stringify(data, null, 2))}</pre>`;
+function setError(message = '') {
+  el.error.textContent = message;
+  el.error.classList.toggle('hidden', !message);
+}
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>'"]/g, (c) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    "'": '&#39;',
+    '"': '&quot;',
+  }[c]));
+}
+
+function openSidebar() {
+  el.sidebar.classList.add('open');
+  el.sidebarBackdrop.classList.remove('hidden');
+}
+
+function closeSidebar() {
+  el.sidebar.classList.remove('open');
+  el.sidebarBackdrop.classList.add('hidden');
+}
+
+function openModal(contentHtml) {
+  el.modalBody.innerHTML = contentHtml;
   el.modal.classList.remove('hidden');
 }
-function closeModal() { el.modal.classList.add('hidden'); }
-el.modalClose.addEventListener('click', closeModal);
-el.modal.addEventListener('click', (e) => { if (e.target === el.modal) closeModal(); });
 
-function escapeHtml(v) {
-  return v.replace(/[&<>'"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]));
+function closeModal() {
+  el.modal.classList.add('hidden');
 }
 
-function card(title, body) { return `<article class="card"><h2>${title}</h2>${body}</article>`; }
-function list(items, renderer) {
-  if (!items?.length) return '<p class="meta">データがありません。</p>';
-  return `<ul class="list">${items.map((it) => `<li class="list-item">${renderer(it)}</li>`).join('')}</ul>`;
+function placeholder(view) {
+  return `
+    <section class="empty-state">
+      <p class="eyebrow">Next Step</p>
+      <h3>${escapeHtml(VIEW_TITLES[view])}</h3>
+      <p>この画面は次の実装フェーズで作ります。まずはホーム画面の接続と表示を固めます。</p>
+    </section>
+  `;
+}
+
+function renderTaskRows(tasks) {
+  if (!tasks || tasks.length === 0) {
+    return '<p class="meta">指定日数以内のタスクはありません。</p>';
+  }
+
+  return tasks.map((task) => {
+    const title = escapeHtml(task.taskName || task.title || '無題のタスク');
+    const assignee = escapeHtml(task.assignee || '未定');
+    const dueDate = escapeHtml(task.dueDate || task.limit || '期限なし');
+    const status = escapeHtml(task.status || '');
+    const progress = escapeHtml(task.progress ?? '');
+    const memo = escapeHtml(task.memo || '');
+
+    return `
+      <button class="data-row task-row" type="button" data-modal="task" data-payload='${escapeHtml(JSON.stringify(task))}'>
+        <div class="data-main">
+          <strong>${title}</strong>
+          <span class="meta">担当：${assignee}</span>
+        </div>
+        <div class="data-sub">
+          <span>${dueDate}</span>
+          ${status ? `<span class="pill">${status}</span>` : ''}
+          ${progress !== '' ? `<span class="pill light">${progress}%</span>` : ''}
+        </div>
+      </button>
+      ${memo ? `<p class="row-memo">${memo}</p>` : ''}
+    `;
+  }).join('');
+}
+
+function renderQuestionRows(questions) {
+  if (!questions || questions.length === 0) {
+    return '<p class="meta">未解決の疑問はありません。</p>';
+  }
+
+  return questions.map((question) => {
+    const text = escapeHtml(question.question || question.content || '無題の疑問');
+    const owner = escapeHtml(question.assignee || question.owner || question.questioner || '未定');
+    const due = escapeHtml(question.priority || question.due || question.deadline || '');
+    const memo = escapeHtml(question.memo || question.answer || '');
+
+    return `
+      <button class="data-row question-row" type="button" data-modal="question" data-payload='${escapeHtml(JSON.stringify(question))}'>
+        <div class="data-main">
+          <strong>${text}</strong>
+          <span class="meta">疑問ぬし：${owner}</span>
+        </div>
+        <div class="data-sub">
+          ${due ? `<span>${due}</span>` : '<span>期限未設定</span>'}
+        </div>
+      </button>
+      ${memo ? `<p class="row-memo">${memo}</p>` : ''}
+    `;
+  }).join('');
+}
+
+function bindRowModals() {
+  document.querySelectorAll('[data-modal][data-payload]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const type = button.dataset.modal;
+      const payload = JSON.parse(button.dataset.payload);
+      const title = type === 'task' ? 'タスク詳細' : '疑問詳細';
+      openModal(`
+        <p class="eyebrow">${title}</p>
+        <h3>${escapeHtml(payload.taskName || payload.question || payload.title || '詳細')}</h3>
+        <dl class="detail-list">
+          ${Object.entries(payload).map(([key, value]) => `
+            <div>
+              <dt>${escapeHtml(key)}</dt>
+              <dd>${escapeHtml(value)}</dd>
+            </div>
+          `).join('')}
+        </dl>
+      `);
+    });
+  });
 }
 
 async function renderHome() {
+  const days = state.dueDays;
   const [summary, dueTasks, unresolved, share] = await Promise.all([
-    apiGet('getHomeSummary'),
-    apiGet('getTasksDueWithinDays', { days: state.dueDays }),
+    apiGet('getHomeSummary', { days }),
+    apiGet('getTasksDueWithinDays', { days }),
     apiGet('getUnresolvedQuestions'),
-    apiGet('getLineShareText', { days: state.dueDays }),
+    apiGet('getLineShareText', { days }),
   ]);
 
-  el.views.home.innerHTML = [
-    card('概要', `
-      <div class="row"><div class="card"><div class="kpi">${summary.incompleteTaskCount ?? 0}</div><div class="meta">未完了タスク</div></div>
-      <div class="card"><div class="kpi">${summary.nearDueTaskCount ?? 0}</div><div class="meta">直近タスク</div></div>
-      <div class="card"><div class="kpi">${summary.unresolvedQuestionCount ?? 0}</div><div class="meta">未解決疑問</div></div></div>
-      <div class="row"><input id="due-days" class="input" type="number" min="1" value="${state.dueDays}"><button id="reload-home">再取得</button><button id="copy-line" class="btn-primary">LINE共有文をコピー</button></div>
-    `),
-    card(`${state.dueDays}日以内のタスク`, list(dueTasks, (t) => `${t.taskName} <div class="meta">${t.assignee} / ${t.dueDate}</div>`)),
-    card('未解決の疑問', list(unresolved, (q) => `${q.question} <div class="meta">${q.assignee || '未定'}</div>`)),
-  ].join('');
+  state.lineShareText = share?.text || '';
 
-  document.getElementById('reload-home').onclick = async () => {
-    state.dueDays = Number(document.getElementById('due-days').value || 7);
-    await loadView('home');
-  };
-  document.getElementById('copy-line').onclick = async () => {
-    await navigator.clipboard.writeText(share.text || '');
-    alert('コピーしました');
-  };
-}
+  document.getElementById('home-incomplete-count').textContent = summary?.incompleteTaskCount ?? 0;
+  document.getElementById('home-near-due-count').textContent = summary?.nearDueTaskCount ?? dueTasks?.length ?? 0;
+  document.getElementById('home-question-count').textContent = summary?.unresolvedQuestionCount ?? unresolved?.length ?? 0;
+  document.getElementById('due-days').value = days;
+  document.getElementById('due-task-title').textContent = `${days}日以内のタスク`;
+  document.getElementById('line-share-text').value = state.lineShareText;
+  document.getElementById('due-task-list').innerHTML = renderTaskRows(dueTasks);
+  document.getElementById('unresolved-question-list').innerHTML = renderQuestionRows(unresolved);
 
-async function renderTasks() {
-  const [tasks, assignees, wbs] = await Promise.all([
-    apiGet('getTasks'), apiGet('getAssignees'), apiGet('getWbsTree'),
-  ]);
-  el.views.tasks.innerHTML = [
-    card('タスク一覧', list(tasks, (t) => `<button class="link-detail" data-json='${JSON.stringify(t)}'>${t.taskName}<div class="meta">${t.assignee} / ${t.dueDate}</div></button>`)),
-    card('担当者別タスク', `<div class="row"><select id="assignee-filter">${assignees.map((a) => `<option>${a}</option>`).join('')}</select><button id="load-by-assignee">表示</button></div><div id="assignee-result" class="meta">担当者を選択してください</div>`),
-    card('WBS', list(wbs, (p) => `<details><summary>${p.parentTask}</summary>${list(p.children || [], (c) => `${c.taskName} <div class="meta">${c.assignee} / ${c.dueDate}</div>`)}</details>`)),
-  ].join('');
-
-  document.querySelectorAll('.link-detail').forEach((btn) => btn.onclick = () => openModal(JSON.parse(btn.dataset.json)));
-  document.getElementById('load-by-assignee').onclick = async () => {
-    const name = document.getElementById('assignee-filter').value;
-    const result = await apiGet('getTasksByAssignee', { name });
-    document.getElementById('assignee-result').innerHTML = list(result, (t) => `${t.taskName}<div class="meta">${t.assignee} / ${t.dueDate}</div>`);
-  };
-}
-
-async function renderSchedule() {
-  const [miles, schedule] = await Promise.all([apiGet('getMilestones'), apiGet('getSchedule')]);
-  const byMonth = schedule.reduce((acc, item) => {
-    (acc[item.month] ||= []).push(item); return acc;
-  }, {});
-  el.views.schedule.innerHTML = [
-    card('マイルストーン', list(miles, (m) => `<button class="link-detail" data-json='${JSON.stringify(m)}'>${m.date} ${m.title}</button>`)),
-    card('カレンダー（縦型タイムライン）', Object.entries(byMonth).map(([m, items]) => `<h3>${m}</h3>${list(items, (i) => `<button class="link-detail" data-json='${JSON.stringify(i)}'>${i.date}<div>${i.title}</div></button>`)}`).join('')),
-  ].join('');
-  document.querySelectorAll('.link-detail').forEach((btn) => btn.onclick = () => openModal(JSON.parse(btn.dataset.json)));
-}
-
-async function renderQuestions() {
-  const unresolved = await apiGet('getQuestions', { status: '未解決' });
-  el.views.questions.innerHTML = card('疑問一覧', list(unresolved, (q) => `<button class="link-detail" data-json='${JSON.stringify(q)}'>${q.question}<div class="meta">${q.assignee || '未定'} / ${q.status}</div></button>`));
-  document.querySelectorAll('.link-detail').forEach((btn) => btn.onclick = () => openModal(JSON.parse(btn.dataset.json)));
-}
-
-async function renderMemos() {
-  const memos = await apiGet('getMemos');
-  el.views.memos.innerHTML = card('メモ一覧', list(memos, (m) => `<button class="link-detail" data-json='${JSON.stringify(m)}'>${m.title}</button>`));
-  document.querySelectorAll('.link-detail').forEach((btn) => btn.onclick = () => openModal(JSON.parse(btn.dataset.json)));
-}
-
-async function renderOthers() {
-  const guests = await apiGet('getGuests');
-  el.views.others.innerHTML = card('来る人リスト', list(guests, (g) => `<button class="link-detail" data-json='${JSON.stringify(g)}'>${g.name}<div class="meta">${g.status} / ${g.contactStatus || ''}</div></button>`));
-  document.querySelectorAll('.link-detail').forEach((btn) => btn.onclick = () => openModal(JSON.parse(btn.dataset.json)));
+  bindRowModals();
 }
 
 async function loadView(view) {
-  setError(''); setLoading(true);
+  state.currentView = view;
+  setError('');
+  setLoading(true);
+
   try {
-    Object.keys(el.views).forEach((v) => el.views[v].classList.toggle('active', v === view));
-    el.navButtons.forEach((b) => b.classList.toggle('active', b.dataset.view === view));
+    Object.entries(el.views).forEach(([key, node]) => {
+      node.classList.toggle('active', key === view);
+      if (key !== 'home' && key === view && !node.innerHTML.trim()) {
+        node.innerHTML = placeholder(key);
+      }
+    });
+
+    el.navButtons.forEach((button) => button.classList.toggle('active', button.dataset.view === view));
+    el.pageTitle.textContent = VIEW_TITLES[view] || 'ホーム';
+
     if (view === 'home') await renderHome();
-    if (view === 'tasks') await renderTasks();
-    if (view === 'schedule') await renderSchedule();
-    if (view === 'questions') await renderQuestions();
-    if (view === 'memos') await renderMemos();
-    if (view === 'others') await renderOthers();
-  } catch (e) {
-    setError(e.message);
-  } finally { setLoading(false); }
+  } catch (error) {
+    setError(error.message);
+  } finally {
+    setLoading(false);
+    closeSidebar();
+  }
 }
 
-el.navButtons.forEach((btn) => btn.addEventListener('click', () => loadView(btn.dataset.view)));
+function setupHomeEvents() {
+  document.getElementById('home-refresh').addEventListener('click', () => loadView('home'));
+  document.getElementById('home-apply-days').addEventListener('click', () => {
+    const nextDays = Number(document.getElementById('due-days').value || window.APP_CONFIG.DEFAULT_DUE_DAYS || 7);
+    state.dueDays = Math.max(1, nextDays);
+    loadView('home');
+  });
+  document.getElementById('due-days').addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') document.getElementById('home-apply-days').click();
+  });
+  document.getElementById('copy-line').addEventListener('click', async () => {
+    const text = document.getElementById('line-share-text').value || state.lineShareText || '';
+    await navigator.clipboard.writeText(text);
+    const result = document.getElementById('copy-result');
+    result.classList.remove('hidden');
+    setTimeout(() => result.classList.add('hidden'), 1800);
+  });
+}
+
+el.sidebarOpen.addEventListener('click', openSidebar);
+el.sidebarClose.addEventListener('click', closeSidebar);
+el.sidebarBackdrop.addEventListener('click', closeSidebar);
+el.navButtons.forEach((button) => button.addEventListener('click', () => loadView(button.dataset.view)));
+el.modalClose.addEventListener('click', closeModal);
+el.modal.addEventListener('click', (event) => {
+  if (event.target === el.modal) closeModal();
+});
+
+setupHomeEvents();
 loadView('home');

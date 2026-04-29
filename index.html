@@ -7,38 +7,138 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <header class="topbar">
-      <h1>林檎の唄。管理</h1>
-      <p class="subtitle">第1段階（読むだけUI）</p>
-    </header>
+    <div class="app-shell">
+      <aside id="sidebar" class="sidebar" aria-label="メニュー">
+        <div class="sidebar-head">
+          <div>
+            <p class="eyebrow">Ringo System</p>
+            <h1>林檎の唄。管理</h1>
+          </div>
+          <button id="sidebar-close" class="icon-btn sidebar-close" aria-label="メニューを閉じる">✕</button>
+        </div>
 
-    <main id="app">
-      <section id="view-home" class="view active"></section>
-      <section id="view-tasks" class="view"></section>
-      <section id="view-schedule" class="view"></section>
-      <section id="view-questions" class="view"></section>
-      <section id="view-memos" class="view"></section>
-      <section id="view-others" class="view"></section>
-    </main>
+        <nav class="side-nav">
+          <button data-view="home" class="nav-btn active"><span>①</span>ホーム</button>
+          <button data-view="tasks" class="nav-btn"><span>②</span>タスク関連</button>
+          <button data-view="milestones" class="nav-btn"><span>③</span>マイルストーン</button>
+          <button data-view="calendar" class="nav-btn"><span>④</span>カレンダー</button>
+          <button data-view="questions" class="nav-btn"><span>⑤</span>疑問箱</button>
+          <button data-view="memos" class="nav-btn"><span>⑥</span>メモページ</button>
+          <button data-view="expenses" class="nav-btn"><span>⑦</span>経費登録</button>
+          <button data-view="guests" class="nav-btn"><span>⑧</span>来る人リスト</button>
+        </nav>
+
+        <div class="sidebar-note">
+          <strong>今の実装段階</strong>
+          <p>まずはホーム画面。次にタスク読むだけ版へ進みます。</p>
+        </div>
+      </aside>
+
+      <div id="sidebar-backdrop" class="sidebar-backdrop hidden"></div>
+
+      <div class="main-shell">
+        <header class="topbar">
+          <button id="sidebar-open" class="menu-btn" aria-label="メニューを開く">☰</button>
+          <div>
+            <p class="eyebrow">林檎の唄。スマホ版UI</p>
+            <h2 id="page-title">ホーム</h2>
+          </div>
+        </header>
+
+        <main id="app">
+          <section id="view-home" class="view active" aria-labelledby="page-title">
+            <section class="home-hero">
+              <div>
+                <p class="eyebrow">Today</p>
+                <h3>現在の状況</h3>
+                <p class="lead">指定した日数以内のタスクと、未解決の疑問をまとめて確認できます。</p>
+              </div>
+              <button id="home-refresh" class="btn-primary">再読み込み</button>
+            </section>
+
+            <section class="summary-grid" aria-label="概要">
+              <article class="summary-card">
+                <p class="summary-label">未完了タスク</p>
+                <p id="home-incomplete-count" class="summary-number">-</p>
+              </article>
+              <article class="summary-card">
+                <p class="summary-label">直近タスク</p>
+                <p id="home-near-due-count" class="summary-number">-</p>
+              </article>
+              <article class="summary-card">
+                <p class="summary-label">未解決疑問</p>
+                <p id="home-question-count" class="summary-number">-</p>
+              </article>
+            </section>
+
+            <section class="card control-card">
+              <div class="field-row">
+                <label for="due-days">何日以内のタスクを見る？</label>
+                <div class="inline-control">
+                  <input id="due-days" class="input short-input" type="number" min="1" step="1" value="7" />
+                  <span class="unit">日以内</span>
+                  <button id="home-apply-days" class="btn-secondary">表示</button>
+                </div>
+              </div>
+            </section>
+
+            <section class="card line-card">
+              <div class="section-head">
+                <div>
+                  <p class="eyebrow">LINE Share</p>
+                  <h3>LINE送信用文章</h3>
+                </div>
+                <button id="copy-line" class="btn-primary">コピー</button>
+              </div>
+              <textarea id="line-share-text" class="textarea" readonly placeholder="読み込み後、ここにLINE送信用の文章が表示されます。"></textarea>
+              <p id="copy-result" class="notice hidden">コピーしました。</p>
+            </section>
+
+            <section class="card">
+              <div class="section-head">
+                <div>
+                  <p class="eyebrow">Tasks</p>
+                  <h3 id="due-task-title">7日以内のタスク</h3>
+                </div>
+              </div>
+              <div id="due-task-list" class="table-list">
+                <p class="meta">読み込み中...</p>
+              </div>
+            </section>
+
+            <section class="card">
+              <div class="section-head">
+                <div>
+                  <p class="eyebrow">Questions</p>
+                  <h3>未解決の疑問</h3>
+                </div>
+              </div>
+              <div id="unresolved-question-list" class="table-list">
+                <p class="meta">読み込み中...</p>
+              </div>
+            </section>
+          </section>
+
+          <section id="view-tasks" class="view"></section>
+          <section id="view-milestones" class="view"></section>
+          <section id="view-calendar" class="view"></section>
+          <section id="view-questions" class="view"></section>
+          <section id="view-memos" class="view"></section>
+          <section id="view-expenses" class="view"></section>
+          <section id="view-guests" class="view"></section>
+        </main>
+      </div>
+    </div>
 
     <div id="loading" class="loading hidden">読み込み中...</div>
     <div id="error" class="error hidden"></div>
 
     <div id="modal" class="modal hidden" role="dialog" aria-modal="true">
       <div class="modal-content">
-        <button id="modal-close" class="icon-btn">✕</button>
+        <button id="modal-close" class="icon-btn modal-close" aria-label="閉じる">✕</button>
         <div id="modal-body"></div>
       </div>
     </div>
-
-    <nav class="bottom-nav">
-      <button data-view="home" class="nav-btn active">ホーム</button>
-      <button data-view="tasks" class="nav-btn">タスク</button>
-      <button data-view="schedule" class="nav-btn">予定</button>
-      <button data-view="questions" class="nav-btn">疑問</button>
-      <button data-view="memos" class="nav-btn">メモ</button>
-      <button data-view="others" class="nav-btn">その他</button>
-    </nav>
 
     <script src="config.js"></script>
     <script src="app.js"></script>
