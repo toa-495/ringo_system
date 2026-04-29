@@ -1220,3 +1220,30 @@ button {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
+
+/* カレンダーセルの表示を中央揃えに整える */
+.calendar-grid-table td,
+.calendar-grid-table th {
+  text-align: center !important;
+  vertical-align: middle !important;
+}
+
+.calendar-date-row td {
+  height: 36px !important;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.calendar-event-row td {
+  height: 86px !important;
+  text-align: center !important;
+  vertical-align: middle !important;
+  white-space: pre-wrap;
+  word-break: keep-all;
+  overflow-wrap: normal;
+  line-height: 1.6;
+}
+
+.calendar-event-row td {
+  writing-mode: horizontal-tb !important;
+}
