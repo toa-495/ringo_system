@@ -841,6 +841,7 @@ async function loadMilestones() {
         </div>
       </section>
     `;
+    bindMilestoneGridEvents();
   } catch (err) {
     console.error(err);
     setError(err.message || 'マイルストーンの読み込みに失敗しました。');
@@ -1059,14 +1060,77 @@ function renderMilestoneGrid(data) {
       <tbody>
         ${rows.map((row, rowIndex) => `
           <tr class="milestone-sheet-row milestone-sheet-row-${rowIndex + 2}">
-            ${row.map(cell => `
-              <td>${escapeHtml(cell || '')}</td>
-            `).join('')}
+            ${row.map((cell, colIndex) => {
+              const sheetRow = rowIndex + 2;
+              const sheetCol = colIndex + 3;
+              const editable = sheetRow === 3 || sheetRow === 4;
+
+              return `
+                <td
+                  class="${editable ? 'milestone-editable-cell' : ''}"
+                  data-row="${sheetRow}"
+                  data-col="${sheetCol}"
+                  data-value="${escapeHtml(cell || '')}"
+                >
+                  ${escapeHtml(cell || '')}
+                </td>
+              `;
+            }).join('')}
           </tr>
         `).join('')}
       </tbody>
     </table>
   `;
+}
+
+function bindMilestoneGridEvents() {
+  document.querySelectorAll('.milestone-editable-cell').forEach(cell => {
+    cell.addEventListener('click', () => {
+      openMilestoneCellEditModal({
+        row: cell.dataset.row,
+        col: cell.dataset.col,
+        value: cell.dataset.value || '',
+      });
+    });
+  });
+}
+
+function openMilestoneCellEditModal(cell) {
+  openModal(`
+    <p class="eyebrow">マイルストーン編集</p>
+    <h3>${cell.row === '3' ? 'フェイズ内容' : 'タスク内容'}を編集</h3>
+
+    <div class="form-stack">
+      <label>内容
+        <textarea id="milestone-cell-value">${escapeHtml(cell.value || '')}</textarea>
+      </label>
+
+      <button id="milestone-cell-save-btn" class="primary-btn" type="button">保存</button>
+    </div>
+  `);
+
+  document.getElementById('milestone-cell-save-btn').addEventListener('click', async () => {
+    const value = document.getElementById('milestone-cell-value').value.trim();
+
+    try {
+      setLoading(true);
+      setError('');
+
+      await apiGet('updateMilestoneCell', {
+        row: cell.row,
+        col: cell.col,
+        value,
+      });
+
+      closeModal();
+      await loadMilestones();
+    } catch (err) {
+      console.error(err);
+      setError(err.message || 'マイルストーンの保存に失敗しました。');
+    } finally {
+      setLoading(false);
+    }
+  });
 }
 
 setupHomeEvents();
