@@ -470,5 +470,157 @@ el.modal.addEventListener('click', (event) => {
   if (event.target === el.modal) closeModal();
 });
 
+state.questionStatus = 'unresolved';
+
+async function loadQuestions(status = state.questionStatus || 'unresolved') {
+  state.questionStatus = status;
+  setLoading(true);
+  setError('');
+
+  try {
+    const questions = await apiGet('getQuestions', { status });
+
+    el.views.questions.innerHTML = `
+      <section class="card question-page">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Questions</p>
+            <h3>疑問箱</h3>
+          </div>
+        </div>
+
+        <div class="question-tabs">
+          <button class="question-tab ${status === 'unresolved' ? 'active' : ''}" data-question-status="unresolved">未完了</button>
+          <button class="question-tab ${status === 'resolved' ? 'active' : ''}" data-question-status="resolved">完了済</button>
+          <button class="question-tab ${status === 'all' ? 'active' : ''}" data-question-status="all">すべて</button>
+        </div>
+
+        <div class="question-list">
+          ${renderQuestionManageRows(questions || [])}
+        </div>
+
+        <button id="question-add-btn" class="floating-add-btn" type="button">＋</button>
+      </section>
+    `;
+
+    bindQuestionEvents(questions || []);
+  } catch (err) {
+    console.error(err);
+    setError(err.message || '疑問箱の読み込みに失敗しました。');
+  } finally {
+    setLoading(false);
+  }
+}
+
+function renderQuestionManageRows(questions) {
+  if (!questions.length) return '<p class="meta">該当する疑問はありません。</p>';
+
+  return questions.map(q => `
+    <div class="data-row question-manage-row">
+      <div class="data-main">
+        <strong>${escapeHtml(q.question || '無題の疑問')}</strong>
+        <span class="meta">
+          疑問ぬし：${escapeHtml(q.owner || '未定')}
+          ${q.due ? ` / ${escapeHtml(q.due)}` : ''}
+        </span>
+        ${q.answer ? `<span class="meta">回答：${escapeHtml(q.answer)}</span>` : ''}
+      </div>
+      <button class="question-edit-btn" type="button" data-question-id="${q.id}">✒</button>
+    </div>
+  `).join('');
+}
+
+function bindQuestionEvents(questions) {
+  document.querySelectorAll('[data-question-status]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      loadQuestions(btn.dataset.questionStatus);
+    });
+  });
+
+  document.getElementById('question-add-btn').addEventListener('click', () => {
+    openQuestionModal();
+  });
+
+  document.querySelectorAll('.question-edit-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const q = questions.find(item => String(item.id) === String(btn.dataset.questionId));
+      openQuestionModal(q);
+    });
+  });
+}
+
+function openQuestionModal(question = null) {
+  const isEdit = !!question;
+
+  openModal(`
+    <p class="eyebrow">${isEdit ? '疑問を編集' : '疑問を追加'}</p>
+    <h3>${isEdit ? '疑問の編集' : '新しい疑問'}</h3>
+
+    <div class="form-stack">
+      <label>疑問内容
+        <textarea id="question-form-question">${escapeHtml(question?.question || '')}</textarea>
+      </label>
+
+      <label>疑問ぬし
+        <input id="question-form-owner" type="text" value="${escapeHtml(question?.owner || '')}">
+      </label>
+
+      <label>いつごろまでに
+        <input id="question-form-due" type="text" value="${escapeHtml(question?.due || '')}">
+      </label>
+
+      <label>回答
+        <textarea id="question-form-answer">${escapeHtml(question?.answer || '')}</textarea>
+      </label>
+
+      <label class="check-row">
+        <input id="question-form-resolved" type="checkbox" ${question?.resolved === true ? 'checked' : ''}>
+        回答済みにする
+      </label>
+
+      <button id="question-save-btn" class="primary-btn" type="button">保存</button>
+    </div>
+  `);
+
+  document.getElementById('question-save-btn').addEventListener('click', async () => {
+    const data = {
+      question: document.getElementById('question-form-question').value.trim(),
+      owner: document.getElementById('question-form-owner').value.trim(),
+      due: document.getElementById('question-form-due').value.trim(),
+      answer: document.getElementById('question-form-answer').value.trim(),
+      resolved: document.getElementById('question-form-resolved').checked,
+    };
+
+    if (!data.question) {
+      setError('疑問内容を入力してください。');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError('');
+
+      if (isEdit) {
+        await apiGet('updateQuestion', {
+          id: question.id,
+          data: JSON.stringify(data),
+        });
+      } else {
+        await apiGet('addQuestion', {
+          data: JSON.stringify(data),
+        });
+      }
+
+      closeModal();
+      await loadQuestions(state.questionStatus);
+    } catch (err) {
+      console.error(err);
+      setError(err.message || '疑問の保存に失敗しました。');
+    } finally {
+      setLoading(false);
+    }
+  });
+}
+
 setupHomeEvents();
 loadView('home');
