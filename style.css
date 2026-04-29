@@ -881,7 +881,8 @@ button {
   max-width: 72px;
   height: 72px;
   padding: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-right: 1px dashed rgba(255, 255, 255, 0.28);
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.28);
   vertical-align: middle;
   text-align: center;
   white-space: pre-wrap;
@@ -905,4 +906,17 @@ button {
 
 .milestone-sheet-row-4 td {
   height: 92px;
+}
+
+.milestone-sheet {
+  border-top: 1px dashed rgba(255, 255, 255, 0.28);
+  border-left: 1px dashed rgba(255, 255, 255, 0.28);
+}
+
+.milestone-editable-cell {
+  cursor: pointer;
+}
+
+.milestone-editable-cell:active {
+  opacity: 0.7;
 }
