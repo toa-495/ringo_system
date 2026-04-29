@@ -824,7 +824,10 @@ async function loadMilestones() {
   setError('');
 
   try {
-    const data = await apiGet('getMilestoneGrid');
+    const [milestoneData, ganttData] = await Promise.all([
+      apiGet('getMilestoneGrid'),
+      apiGet('getGanttGrid'),
+    ]);
 
     el.views.milestones.innerHTML = `
       <section class="card milestone-page">
@@ -832,15 +835,27 @@ async function loadMilestones() {
           <div>
             <p class="eyebrow">Milestones</p>
             <h3>マイルストーン</h3>
-            <p class="meta">スプレッドシートのマイルストーン表をそのまま表示しています。</p>
+            <p class="meta">マイルストーンとガントチャートを横スクロールで確認できます。</p>
           </div>
         </div>
 
         <div class="milestone-sheet-wrap">
-          ${renderMilestoneGrid(data)}
+          ${renderMilestoneGrid(milestoneData)}
+        </div>
+
+        <div class="section-head gantt-head">
+          <div>
+            <p class="eyebrow">Gantt</p>
+            <h3>ガントチャート</h3>
+          </div>
+        </div>
+
+        <div class="gantt-sheet-wrap">
+          ${renderGanttGrid(ganttData)}
         </div>
       </section>
     `;
+
     bindMilestoneGridEvents();
   } catch (err) {
     console.error(err);
@@ -1080,6 +1095,53 @@ function renderMilestoneGrid(data) {
         `).join('')}
       </tbody>
     </table>
+  `;
+}
+
+function renderGanttGrid(data) {
+  const headers = data.headers || [];
+  const rows = data.rows || [];
+
+  if (!headers.length || !rows.length) {
+    return '<p class="meta">ガントチャートが登録されていません。</p>';
+  }
+
+  return `
+    <table class="gantt-sheet">
+      <thead>
+        <tr>
+          ${headers.map(header => `
+            <th>${escapeHtml(header || '')}</th>
+          `).join('')}
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map(row => renderGanttRow(row)).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderGanttRow(row) {
+  let taskPlaced = false;
+
+  return `
+    <tr>
+      ${row.cells.map(cell => {
+        const isActive = String(cell).trim() === '1';
+        const label = isActive && !taskPlaced ? row.taskName : '';
+
+        if (isActive && !taskPlaced) {
+          taskPlaced = true;
+        }
+
+        return `
+          <td class="${isActive ? 'gantt-active' : ''}">
+            ${label ? `<span class="gantt-task-label">${escapeHtml(label)}</span>` : ''}
+          </td>
+        `;
+      }).join('')}
+    </tr>
   `;
 }
 
