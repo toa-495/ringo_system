@@ -1376,11 +1376,11 @@ function renderCalendarGrid(data) {
         <tbody>
           ${weeks.map(week => `
             <tr class="calendar-date-row">
-              ${week.dateRow.map((date, index) => `
-                <td class="${getCalendarDayClass(index)}" data-calendar-month="${escapeHtml(extractMonthFromDateText(date))}">
-                  ${escapeHtml(date || '')}
-                </td>
-              `).join('')}
+            ${week.dateRow.map((dateObj, index) => `
+  <td class="${getCalendarDayClass(index)}" data-calendar-month="${escapeHtml(dateObj?.month || '')}">
+    ${escapeHtml(dateObj?.text || '')}
+  </td>
+`).join('')}
             </tr>
             <tr class="calendar-event-row">
               ${week.eventRow.map((text, index) => `
@@ -1409,7 +1409,7 @@ function renderCalendarList(data) {
         const dayClass = getCalendarWeekdayClassByText(item.weekday);
 
         return `
-          <div class="data-row calendar-list-row" data-calendar-month="${escapeHtml(extractMonthFromDateText(item.date))}">
+          <div class="data-row calendar-list-row" data-calendar-month="${escapeHtml(item.month || extractMonthFromDateText(item.date))}">
             <div class="data-main">
               <strong class="${dayClass}">
                 ${escapeHtml(item.date || '日付未設定')} ${escapeHtml(item.weekday || '')}
