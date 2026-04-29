@@ -264,18 +264,24 @@ async function loadHome() {
   setError('');
 
   try {
-    const days = state.dueDays || window.APP_CONFIG.DEFAULT_DUE_DAYS || 7;
+    const topInfo = await apiGet('getHomeTopInfo');
 
-    document.getElementById('due-days').value = days;
-    document.getElementById('due-task-title').textContent = `${days}日以内のタスク`;
+const sheetDueDays = Number(topInfo?.dueDays);
+const days = Number.isFinite(sheetDueDays) && sheetDueDays > 0
+  ? sheetDueDays
+  : (state.dueDays || window.APP_CONFIG.DEFAULT_DUE_DAYS || 7);
 
-    const [topInfo, summary, dueTasks, unresolvedQuestions, lineShare] = await Promise.all([
-      apiGet('getHomeTopInfo'),
-      apiGet('getHomeSummary', { days }),
-      apiGet('getTasksDueWithinDays', { days }),
-      apiGet('getUnresolvedQuestions'),
-      apiGet('getLineShareText', { days }),
-    ]);
+state.dueDays = days;
+
+document.getElementById('due-days').value = days;
+document.getElementById('due-task-title').textContent = `${days}日以内のタスク`;
+
+const [summary, dueTasks, unresolvedQuestions, lineShare] = await Promise.all([
+  apiGet('getHomeSummary', { days }),
+  apiGet('getTasksDueWithinDays', { days }),
+  apiGet('getUnresolvedQuestions'),
+  apiGet('getLineShareText', { days }),
+]);
 
     renderTopInfo(topInfo || {});
 
