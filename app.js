@@ -140,7 +140,7 @@ function renderTaskRows(tasks) {
   }
 
   return tasks.map((task) => {
-    const title = escapeHtml(task.taskName || task.title || '無題のタスク');
+    const title = escapeHtml(task.title || task.taskName || '無題のタスク');
     const assignee = escapeHtml(task.assignee || '未定');
     const dueDate = escapeHtml(task.dueDate || task.limit || '期限なし');
 
@@ -185,11 +185,10 @@ function renderQuestionRows(questions) {
 
 
 function renderTaskDetail(payload) {
+  const taskTitle = payload.title || payload.taskName || '詳細';
   const items = [
-    ['タスクタイトル', payload.taskName],
-    ['ID', payload.taskId],
-    ['固有No.', payload.no],
-    ['親タスクID', payload.parentId],
+    ['No.', payload.no],
+    ['タイトル', payload.title || payload.taskName],
     ['親タスク', payload.parentTask],
     ['担当者', payload.assignee || '未定'],
     ['絶対！期日', payload.dueDate || '期限なし'],
@@ -202,7 +201,7 @@ function renderTaskDetail(payload) {
 
   return `
     <p class="eyebrow">タスク詳細</p>
-    <h3>${escapeHtml(payload.taskName || '詳細')}</h3>
+    <h3>${escapeHtml(taskTitle)}</h3>
     <dl class="detail-list">
       ${items.map(([key, value]) => `
         <div>
@@ -213,6 +212,7 @@ function renderTaskDetail(payload) {
     </dl>
   `;
 }
+
 
 function bindRowModals() {
   document.querySelectorAll('[data-modal="task"][data-payload]').forEach((button) => {
@@ -226,59 +226,12 @@ function bindRowModals() {
 
 function renderTopInfo(topInfo) {
   document.getElementById('home-today-label').textContent = '今日の日程';
-  document.getElementById('home-days-left').textContent = topInfo?.daysUntilEvent ?? '-';
+  const daysText = topInfo?.daysUntilEvent || topInfo?.daysLeft || '-';
+  document.getElementById('home-days-left').textContent = daysText;
   document.getElementById('home-current-phase').textContent = topInfo?.currentPhase || '現在フェイズ未設定';
   document.getElementById('home-today-schedule').innerHTML = renderTodaySchedule(topInfo?.todaySchedule || topInfo?.todayLabel);
 }
 
-async function renderHome() {
-  const days = state.dueDays;
-  const [topInfo, summary, dueTasks, unresolved, share] = await Promise.all([
-    apiGet('getHomeTopInfo'),
-    apiGet('getHomeSummary', { days }),
-    apiGet('getTasksDueWithinDays', { days }),
-    apiGet('getUnresolvedQuestions'),
-    apiGet('getLineShareText'),
-  ]);
-
-  state.lineShareText = share?.text || '';
-
-  renderTopInfo(topInfo);
-  document.getElementById('home-incomplete-count').textContent = summary?.incompleteTaskCount ?? 0;
-  document.getElementById('home-near-due-count').textContent = summary?.nearDueTaskCount ?? dueTasks?.length ?? 0;
-  document.getElementById('home-question-count').textContent = summary?.unresolvedQuestionCount ?? unresolved?.length ?? 0;
-  document.getElementById('due-days').value = days;
-  document.getElementById('due-task-title').textContent = `${days}日以内のタスク`;
-  document.getElementById('due-task-list').innerHTML = renderTaskRows(dueTasks);
-  document.getElementById('unresolved-question-list').innerHTML = renderQuestionRows(unresolved);
-
-  bindRowModals();
-}
-
-async function loadView(view) {
-  state.currentView = view;
-  setError('');
-  setLoading(true);
-
-  try {
-    Object.entries(el.views).forEach(([key, node]) => {
-      node.classList.toggle('active', key === view);
-      if (key !== 'home' && key === view && !node.innerHTML.trim()) {
-        node.innerHTML = placeholder(key);
-      }
-    });
-
-    el.navButtons.forEach((button) => button.classList.toggle('active', button.dataset.view === view));
-    el.pageTitle.textContent = VIEW_TITLES[view] || 'ホーム';
-
-    if (view === 'home') await renderHome();
-  } catch (error) {
-    setError(error.message);
-  } finally {
-    setLoading(false);
-    closeSidebar();
-  }
-}
 
 function setupHomeEvents() {
   document.getElementById('home-refresh').addEventListener('click', () => loadView('home'));

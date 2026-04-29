@@ -116,57 +116,33 @@ function api_getHomeTopInfo_() {
 
 
 function api_getTasks_() {
-  const sh = api_sheet_('タスク書き出し、進捗');
+  const sh = api_sheet_('タスクテーブル');
   if (!sh) return [];
-  const startRow = 5;
+
+  const startRow = 2;
   const lastRow = sh.getLastRow();
   if (lastRow < startRow) return [];
 
-  const values = sh.getRange(startRow, 1, lastRow - startRow + 1, 25).getValues();
-  const progressByNo = {};
+  const values = sh.getRange(startRow, 1, lastRow - startRow + 1, 11).getValues();
 
-  values.forEach(row => {
-    const progressNo = row[13]; // N列：進捗側の固有No.
-    if (progressNo === '' || progressNo === null) return;
-    progressByNo[String(progressNo)] = {
-      no: progressNo,
-      progressTitle: row[14],
-      assignee: row[15],
-      dueDate: api_fmtDate_(row[16]),
-      targetDate: api_fmtDate_(row[17]),
-      startPlan: api_fmtDate_(row[18]),
-      daysLeft: row[20],
-      status: row[21],
-      progress: row[22],
-      memo: row[24],
-    };
-  });
-
-  return values.map(row => {
-    const no = row[2];       // C列：固有No.
-    const taskName = row[3]; // D列：タスクタイトル
-    const taskId = row[5];   // F列：WBS ID 例 1-2-3
-    if ((no === '' || no === null) && !taskName) return null;
-
-    const progress = progressByNo[String(no)] || {};
-    const parentId = String(taskId || '').split('-').slice(0, -1).join('-');
+  return values.map((r, i) => {
+    const no = r[1];
+    const title = r[2];
+    if (!title) return null;
 
     return {
+      id: no || i + startRow,
       no,
-      taskName,
-      taskId,
-      parentId,
-      parentTask: row[4],
-      level: row[7],
-      sortId: row[6],
-      assignee: progress.assignee || '',
-      dueDate: progress.dueDate || '',
-      targetDate: progress.targetDate || '',
-      startPlan: progress.startPlan || '',
-      daysLeft: progress.daysLeft || '',
-      status: progress.status || '',
-      progress: progress.progress ?? '',
-      memo: progress.memo || '',
+      title,
+      taskName: title,
+      parentTask: r[3] || '',
+      assignee: r[4] || '未定',
+      dueDate: api_fmtDate_(r[5]),
+      targetDate: api_fmtDate_(r[6]),
+      startPlan: api_fmtDate_(r[7]),
+      status: r[8] || '',
+      progress: r[9] === '' || r[9] === null ? '' : r[9],
+      memo: r[10] || '',
     };
   }).filter(Boolean);
 }
@@ -176,6 +152,7 @@ function api_getTaskDetail_(no) {
   return api_getTasks_().find(t => String(t.no) === String(no)) || null;
 }
 
+
 function api_getTasksDueWithinDays_(days) {
   const today = new Date();
   const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -184,22 +161,30 @@ function api_getTasksDueWithinDays_(days) {
   return api_getTasks_().filter(t => {
     if (!t.dueDate) return false;
     const d = new Date(t.dueDate);
+    if (isNaN(d.getTime())) return false;
     return d >= start && d <= end;
   });
 }
+
 
 function api_getTasksByAssignee_(name) {
   if (!name) return [];
   return api_getTasks_().filter(t => String(t.assignee || '').includes(String(name)));
 }
 
+
 function api_getAssignees_() {
-  const names = api_getTasks_()
-    .map(t => String(t.assignee || '未定').trim())
-    .filter(Boolean);
+  const names = [];
+  api_getTasks_().forEach(t => {
+    String(t.assignee || '未定').split(',').forEach(name => {
+      const trimmed = name.trim();
+      if (trimmed) names.push(trimmed);
+    });
+  });
   if (!names.includes('未定')) names.push('未定');
   return Array.from(new Set(names)).sort();
 }
+
 
 function api_getWbsTree_() {
   const groups = {};
@@ -210,6 +195,7 @@ function api_getWbsTree_() {
   });
   return Object.keys(groups).map(parentTask => ({ parentTask, children: groups[parentTask] }));
 }
+
 
 function api_getQuestions_(status) {
   const rows = api_getRows_('疑問集約', 3, 2, 6);
