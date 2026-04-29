@@ -920,3 +920,17 @@ button {
 .milestone-editable-cell:active {
   opacity: 0.7;
 }
+
+/* マイルストーン表：罫線を確実に表示 */
+.milestone-sheet {
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  border-top: 1px dashed rgba(255, 255, 255, 0.55) !important;
+  border-left: 1px dashed rgba(255, 255, 255, 0.55) !important;
+}
+
+.milestone-sheet td {
+  border-right: 1px dashed rgba(255, 255, 255, 0.55) !important;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.55) !important;
+  box-shadow: inset -1px -1px 0 rgba(255, 255, 255, 0.12) !important;
+}
