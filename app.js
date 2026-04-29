@@ -819,7 +819,12 @@ async function loadGuests() {
   setError('');
 
   try {
-    const guests = await apiGet('getGuests');
+    const [guests, guestOptions] = await Promise.all([
+  apiGet('getGuests'),
+  apiGet('getGuestOptions'),
+]);
+
+state.guestOptions = guestOptions || { attackers: [], prospects: [] };
 
     el.views.guests.innerHTML = `
       <section class="card guest-page">
@@ -896,16 +901,30 @@ function openGuestEditModal(guest = null) {
       </label>
 
       <label>アタック担当
-        <input id="guest-form-attacker" type="text" value="${escapeHtml(guest?.attacker || '')}">
-      </label>
+  <select id="guest-form-attacker">
+    <option value="">選択してください</option>
+    ${(state.guestOptions?.attackers || []).map(attacker => `
+      <option value="${escapeHtml(attacker)}" ${attacker === guest?.attacker ? 'selected' : ''}>
+        ${escapeHtml(attacker)}
+      </option>
+    `).join('')}
+  </select>
+</label>
 
       <label>状況詳細
         <textarea id="guest-form-status">${escapeHtml(guest?.status || '')}</textarea>
       </label>
 
       <label>見込み
-        <input id="guest-form-prospect" type="text" value="${escapeHtml(guest?.prospect || '')}" placeholder="S / A / B / C / D など">
-      </label>
+  <select id="guest-form-prospect">
+    <option value="">選択してください</option>
+    ${(state.guestOptions?.prospects || []).map(prospect => `
+      <option value="${escapeHtml(prospect)}" ${prospect === guest?.prospect ? 'selected' : ''}>
+        ${escapeHtml(prospect)}
+      </option>
+    `).join('')}
+  </select>
+</label>
 
       <button id="guest-save-btn" class="primary-btn" type="button">保存</button>
     </div>
