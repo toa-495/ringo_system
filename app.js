@@ -254,8 +254,134 @@ async function loadView(view) {
     return;
   }
 
+  if (view === 'tasks') {
+    await loadTasks();
+    return;
+  }
+
   if (el.views[view]) {
     el.views[view].innerHTML = placeholder(view);
+  }
+}
+
+function getTaskParentId(task) {
+  const id = String(task.id || '').trim();
+  if (!id.includes('-')) return '';
+  return id.split('-').slice(0, -1).join('-');
+}
+
+function buildTaskTree(tasks) {
+  const safeTasks = (tasks || [])
+    .filter((task) => task && task.taskName)
+    .map((task, index) => ({ ...task, id: String(task.id || '').trim(), level: Number(task.level || 1), children: [], originalIndex: index }));
+
+  const byId = new Map();
+  safeTasks.forEach((task) => { if (task.id) byId.set(task.id, task); });
+
+  const roots = [];
+  safeTasks.forEach((task) => {
+    const parentId = getTaskParentId(task);
+    const parent = parentId ? byId.get(parentId) : null;
+    if (parent) parent.children.push(task);
+    else roots.push(task);
+  });
+
+  const sortById = (a, b) => {
+    const aParts = String(a.id || '').split('-').map((n) => Number(n));
+    const bParts = String(b.id || '').split('-').map((n) => Number(n));
+    const len = Math.max(aParts.length, bParts.length);
+    for (let i = 0; i < len; i++) {
+      const av = Number.isFinite(aParts[i]) ? aParts[i] : -1;
+      const bv = Number.isFinite(bParts[i]) ? bParts[i] : -1;
+      if (av !== bv) return av - bv;
+    }
+    return a.originalIndex - b.originalIndex;
+  };
+
+  const sortTree = (items) => {
+    items.sort(sortById);
+    items.forEach((item) => sortTree(item.children));
+  };
+  sortTree(roots);
+  return roots;
+}
+
+function formatDaysUntilDue(value) {
+  if (value === undefined || value === null || String(value).trim() === '') return '';
+  const n = Number(value);
+  if (Number.isNaN(n)) return '';
+  if (n < 0) return `${Math.abs(n)}日超過`;
+  if (n === 0) return '今日まで';
+  return `あと${n}日`;
+}
+
+function renderTaskTree(nodes) {
+  if (!nodes || nodes.length === 0) return '<p class="meta">タスクはありません。</p>';
+
+  const renderNode = (task) => {
+    const hasChildren = task.children && task.children.length > 0;
+    const level = Math.max(1, Number(task.level || 1));
+    const indent = Math.min((level - 1) * 18, 72);
+    const taskJson = escapeHtml(JSON.stringify(task));
+    const dueText = escapeHtml(formatDaysUntilDue(task.daysUntilDue));
+
+    return `
+      <div class="wbs-node" data-task-id="${escapeHtml(task.id || '')}">
+        <div class="wbs-row" style="--indent:${indent}px">
+          <button class="wbs-toggle ${hasChildren ? '' : 'is-leaf'}" type="button" data-toggle-id="${escapeHtml(task.id || '')}" aria-label="子タスクを開閉" ${hasChildren ? '' : 'disabled'}>${hasChildren ? '▼' : '・'}</button>
+          <button class="wbs-task-button" type="button" data-modal="task" data-payload='${taskJson}'>
+            <span class="wbs-task-title">${escapeHtml(task.taskName || '無題のタスク')}</span>
+            <span class="wbs-task-meta">${escapeHtml(task.assignee || '未定')}${task.dueDate ? ` / ${escapeHtml(task.dueDate)}` : ''}</span>
+          </button>
+          ${dueText ? `<span class="wbs-due-pill">${dueText}</span>` : ''}
+        </div>
+        ${hasChildren ? `<div class="wbs-children">${task.children.map(renderNode).join('')}</div>` : ''}
+      </div>
+    `;
+  };
+
+  return nodes.map(renderNode).join('');
+}
+
+function bindWbsToggles() {
+  document.querySelectorAll('[data-toggle-id]').forEach((button) => {
+    button.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const node = button.closest('.wbs-node');
+      if (!node) return;
+      const children = node.querySelector(':scope > .wbs-children');
+      if (!children) return;
+      const isClosed = children.classList.toggle('closed');
+      button.textContent = isClosed ? '▶' : '▼';
+    });
+  });
+}
+
+async function loadTasks() {
+  setLoading(true);
+  setError('');
+  try {
+    const tasks = await apiGet('getTasks');
+    const tree = buildTaskTree(tasks || []);
+    el.views.tasks.innerHTML = `
+      <section class="card">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">WBS Tasks</p>
+            <h3>タスク関連</h3>
+            <p class="meta">親タスクの横のタブで、子タスクを開閉できます。</p>
+          </div>
+        </div>
+        <div id="task-wbs-list" class="wbs-list">${renderTaskTree(tree)}</div>
+      </section>
+    `;
+    bindWbsToggles();
+    bindRowModals();
+  } catch (err) {
+    console.error(err);
+    setError(err.message || 'タスクの読み込みに失敗しました。');
+  } finally {
+    setLoading(false);
   }
 }
 

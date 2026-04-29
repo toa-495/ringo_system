@@ -673,3 +673,16 @@ button {
     justify-content: end;
   }
 }
+
+/* WBS task view */
+.wbs-list { display: grid; gap: 6px; }
+.wbs-node { display: grid; gap: 6px; }
+.wbs-row { display: flex; align-items: stretch; gap: 8px; padding-left: var(--indent, 0px); }
+.wbs-toggle { flex: 0 0 auto; width: 34px; min-height: 46px; border: 1px solid var(--border); border-radius: 12px; background: var(--soft-primary); color: var(--primary); font-weight: 800; }
+.wbs-toggle.is-leaf { background: transparent; color: var(--muted); }
+.wbs-task-button { flex: 1; display: grid; gap: 3px; min-width: 0; padding: 10px 12px; border: 1px solid var(--border); border-radius: 14px; background: #fff; color: var(--text); text-align: left; }
+.wbs-task-title { overflow: hidden; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+.wbs-task-meta { overflow: hidden; color: var(--muted); font-size: 0.78rem; text-overflow: ellipsis; white-space: nowrap; }
+.wbs-due-pill { align-self: center; flex: 0 0 auto; padding: 6px 8px; border-radius: 999px; background: var(--soft-primary); color: var(--primary-dark); font-size: 0.74rem; font-weight: 800; }
+.wbs-children { display: grid; gap: 6px; }
+.wbs-children.closed { display: none; }
