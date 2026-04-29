@@ -266,6 +266,11 @@ if (view === 'questions') {
   return;
 }
 
+if (view === 'memos') {
+  await loadMemos();
+  return;
+}
+
 if (el.views[view]) {
   el.views[view].innerHTML = placeholder(view);
 }
@@ -643,6 +648,167 @@ function openQuestionModal(question = null) {
     }
   });
 }
+
+
+async function loadMemos() {
+  setLoading(true);
+  setError('');
+
+  try {
+    const memos = await apiGet('getMemos');
+
+    el.views.memos.innerHTML = `
+      <section class="card memo-page">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Memos</p>
+            <h3>メモページ</h3>
+            <p class="meta">DM文面・役割分担・締切メモをスマホで確認して、本文をそのままコピーできます。</p>
+          </div>
+        </div>
+
+        <div class="memo-list">
+          ${renderMemoRows(memos || [])}
+        </div>
+
+        <button id="memo-add-btn" class="floating-add-btn" type="button">＋</button>
+      </section>
+    `;
+
+    bindMemoEvents(memos || []);
+  } catch (err) {
+    console.error(err);
+    setError(err.message || 'メモページの読み込みに失敗しました。');
+  } finally {
+    setLoading(false);
+  }
+}
+
+function renderMemoRows(memos) {
+  if (!memos.length) return '<p class="meta">登録されているメモはありません。</p>';
+
+  return memos.map(memo => {
+    const preview = String(memo.body || '').replace(/\s+/g, ' ').slice(0, 70);
+
+    return `
+      <div class="data-row memo-row">
+        <button class="memo-open-btn" type="button" data-memo-id="${escapeHtml(memo.id)}">
+          <div class="data-main">
+            <strong>${escapeHtml(memo.title || '無題のメモ')}</strong>
+            ${preview ? `<span class="meta">${escapeHtml(preview)}${String(memo.body || '').length > 70 ? '…' : ''}</span>` : ''}
+          </div>
+          <div class="data-sub">
+            <span>No.${escapeHtml(memo.no || '')}</span>
+          </div>
+        </button>
+        <button class="memo-edit-btn" type="button" data-memo-id="${escapeHtml(memo.id)}">✒</button>
+      </div>
+    `;
+  }).join('');
+}
+
+function bindMemoEvents(memos) {
+  const addBtn = document.getElementById('memo-add-btn');
+  if (addBtn) {
+    addBtn.addEventListener('click', () => openMemoEditModal());
+  }
+
+  document.querySelectorAll('.memo-open-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const memo = memos.find(item => String(item.id) === String(btn.dataset.memoId));
+      if (memo) openMemoDetailModal(memo);
+    });
+  });
+
+  document.querySelectorAll('.memo-edit-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const memo = memos.find(item => String(item.id) === String(btn.dataset.memoId));
+      openMemoEditModal(memo);
+    });
+  });
+}
+
+function openMemoDetailModal(memo) {
+  openModal(`
+    <p class="eyebrow">メモ詳細</p>
+    <h3>${escapeHtml(memo.title || '無題のメモ')}</h3>
+    <div class="memo-body">${escapeHtml(memo.body || '').replace(/\n/g, '<br>')}</div>
+    <div class="modal-actions">
+      <button id="memo-copy-btn" class="primary-btn" type="button">本文をコピー</button>
+      <button id="memo-edit-from-detail-btn" class="btn-secondary" type="button">編集</button>
+    </div>
+    <p id="memo-copy-result" class="notice hidden">コピーしました。</p>
+  `);
+
+  document.getElementById('memo-copy-btn').addEventListener('click', async () => {
+    await navigator.clipboard.writeText(memo.body || '');
+    const result = document.getElementById('memo-copy-result');
+    result.classList.remove('hidden');
+    setTimeout(() => result.classList.add('hidden'), 1800);
+  });
+
+  document.getElementById('memo-edit-from-detail-btn').addEventListener('click', () => {
+    openMemoEditModal(memo);
+  });
+}
+
+function openMemoEditModal(memo = null) {
+  const isEdit = !!memo;
+
+  openModal(`
+    <p class="eyebrow">${isEdit ? 'メモを編集' : 'メモを追加'}</p>
+    <h3>${isEdit ? 'メモの編集' : '新しいメモ'}</h3>
+
+    <div class="form-stack">
+      <label>タイトル
+        <input id="memo-form-title" type="text" value="${escapeHtml(memo?.title || '')}">
+      </label>
+
+      <label>本文
+        <textarea id="memo-form-body" class="memo-form-body">${escapeHtml(memo?.body || '')}</textarea>
+      </label>
+
+      <button id="memo-save-btn" class="primary-btn" type="button">保存</button>
+    </div>
+  `);
+
+  document.getElementById('memo-save-btn').addEventListener('click', async () => {
+    const data = {
+      title: document.getElementById('memo-form-title').value.trim(),
+      body: document.getElementById('memo-form-body').value,
+    };
+
+    if (!data.title && !data.body.trim()) {
+      setError('タイトルか本文のどちらかを入力してください。');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError('');
+
+      if (isEdit) {
+        await apiGet('updateMemo', {
+          id: memo.id,
+          data: JSON.stringify(data),
+        });
+      } else {
+        await apiGet('addMemo', {
+          data: JSON.stringify(data),
+        });
+      }
+
+      closeModal();
+      await loadMemos();
+    } catch (err) {
+      console.error(err);
+      setError(err.message || 'メモの保存に失敗しました。');
+    } finally {
+      setLoading(false);
+    }
+  });
+}
+
 
 setupHomeEvents();
 loadView('home');
