@@ -281,6 +281,11 @@ if (view === 'milestones') {
   return;
 }
 
+if (view === 'calendar') {
+  await loadCalendar();
+  return;
+}
+
 if (el.views[view]) {
   el.views[view].innerHTML = placeholder(view);
 }
@@ -1282,6 +1287,111 @@ function openMilestoneCellEditModal(cell) {
       setLoading(false);
     }
   });
+}
+
+async function loadCalendar() {
+  setLoading(true);
+  setError('');
+
+  try {
+    const data = await apiGet('getCalendarGrid');
+
+    el.views.calendar.innerHTML = `
+      <section class="card calendar-page">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Calendar</p>
+            <h3>カレンダー</h3>
+            <p class="meta">カレンダー型と縦表示を切り替えて確認できます。</p>
+          </div>
+        </div>
+
+        <div class="view-switch">
+          <button class="view-switch-btn active" type="button" data-calendar-mode="grid">カレンダー</button>
+          <button class="view-switch-btn" type="button" data-calendar-mode="list">縦表示</button>
+        </div>
+
+        <div id="calendar-content">
+          ${renderCalendarGrid(data)}
+        </div>
+      </section>
+    `;
+
+    bindCalendarSwitch(data);
+  } catch (err) {
+    console.error(err);
+    setError(err.message || 'カレンダーの読み込みに失敗しました。');
+  } finally {
+    setLoading(false);
+  }
+}
+
+function bindCalendarSwitch(data) {
+  document.querySelectorAll('[data-calendar-mode]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('[data-calendar-mode]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      const mode = btn.dataset.calendarMode;
+      const content = document.getElementById('calendar-content');
+
+      content.innerHTML = mode === 'list'
+        ? renderCalendarList(data)
+        : renderCalendarGrid(data);
+    });
+  });
+}
+
+function renderCalendarGrid(data) {
+  const weekdays = data.weekdays || [];
+  const weeks = data.weeks || [];
+
+  if (!weekdays.length || !weeks.length) {
+    return '<p class="meta">カレンダーが登録されていません。</p>';
+  }
+
+  return `
+    <div class="calendar-grid-wrap">
+      <table class="calendar-grid-table">
+        <thead>
+          <tr>
+            ${weekdays.map(day => `<th>${escapeHtml(day || '')}</th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>
+          ${weeks.map(week => `
+            <tr class="calendar-date-row">
+              ${week.dateRow.map(date => `<td>${escapeHtml(date || '')}</td>`).join('')}
+            </tr>
+            <tr class="calendar-event-row">
+              ${week.eventRow.map(text => `<td>${escapeHtml(text || '')}</td>`).join('')}
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderCalendarList(data) {
+  const events = (data.events || []).filter(item => item.date || item.text);
+
+  if (!events.length) {
+    return '<p class="meta">予定が登録されていません。</p>';
+  }
+
+  return `
+    <div class="calendar-list">
+      ${events.map(item => `
+        <div class="data-row calendar-list-row">
+          <div class="data-main">
+            <strong>${escapeHtml(item.date || '日付未設定')} ${escapeHtml(item.weekday || '')}</strong>
+            <span class="meta">${escapeHtml(item.text || '予定なし')}</span>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
 }
 
 setupHomeEvents();
