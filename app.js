@@ -1322,6 +1322,7 @@ async function loadCalendar() {
     `;
 
     bindCalendarSwitch(data);
+    scrollCalendarToToday();
   } catch (err) {
     console.error(err);
     setError(err.message || 'カレンダーの読み込みに失敗しました。');
@@ -1349,6 +1350,7 @@ function bindCalendarSwitch(data) {
       }
 
       bindCalendarScrollMonth(data, mode);
+      scrollCalendarToToday();
     });
   });
 
@@ -1376,18 +1378,29 @@ function renderCalendarGrid(data) {
         <tbody>
           ${weeks.map(week => `
             <tr class="calendar-date-row">
-            ${week.dateRow.map((dateObj, index) => `
-  <td class="${getCalendarDayClass(index)}" data-calendar-month="${escapeHtml(dateObj?.month || '')}">
-    ${escapeHtml(dateObj?.text || '')}
-  </td>
-`).join('')}
-            </tr>
-            <tr class="calendar-event-row">
-              ${week.eventRow.map((text, index) => `
-                <td class="${getCalendarDayClass(index)}">
-                  ${escapeHtml(text || '')}
+              ${week.dateRow.map((dateObj, index) => `
+                <td
+                  class="${getCalendarDayClass(index)} ${dateObj?.isToday ? 'calendar-today' : ''}"
+                  data-calendar-month="${escapeHtml(dateObj?.month || '')}"
+                  data-calendar-iso="${escapeHtml(dateObj?.iso || '')}"
+                >
+                  <div class="calendar-cell-inner calendar-date-inner">
+                    ${escapeHtml(dateObj?.text || '')}
+                  </div>
                 </td>
               `).join('')}
+            </tr>
+            <tr class="calendar-event-row">
+              ${week.eventRow.map((text, index) => {
+                const dateObj = week.dateRow[index] || {};
+                return `
+                  <td class="${getCalendarDayClass(index)} ${dateObj?.isToday ? 'calendar-today' : ''}">
+                    <div class="calendar-cell-inner calendar-event-inner">
+                      ${escapeHtml(text || '')}
+                    </div>
+                  </td>
+                `;
+              }).join('')}
             </tr>
           `).join('')}
         </tbody>
@@ -1409,7 +1422,11 @@ function renderCalendarList(data) {
         const dayClass = getCalendarWeekdayClassByText(item.weekday);
 
         return `
-          <div class="data-row calendar-list-row" data-calendar-month="${escapeHtml(item.month || extractMonthFromDateText(item.date))}">
+          <div
+            class="data-row calendar-list-row ${item.isToday ? 'calendar-today-list' : ''}"
+            data-calendar-month="${escapeHtml(item.month || extractMonthFromDateText(item.date))}"
+            data-calendar-iso="${escapeHtml(item.iso || '')}"
+          >
             <div class="data-main">
               <strong class="${dayClass}">
                 ${escapeHtml(item.date || '日付未設定')} ${escapeHtml(item.weekday || '')}
@@ -1450,14 +1467,13 @@ function extractMonthFromDateText(dateText) {
 
 function getCalendarCurrentMonth(data, mode) {
   if (mode === 'list') {
-    const first = (data.events || []).find(item => item.date || item.text);
-    return extractMonthFromDateText(first?.date) || '月未設定';
+    const first = (data.events || []).find(item => item.month || item.date || item.text);
+    return first?.month || extractMonthFromDateText(first?.date) || '月未設定';
   }
 
   for (const week of data.weeks || []) {
-    for (const date of week.dateRow || []) {
-      const month = extractMonthFromDateText(date);
-      if (month) return month;
+    for (const dateObj of week.dateRow || []) {
+      if (dateObj?.month) return dateObj.month;
     }
   }
 
@@ -1492,6 +1508,19 @@ function findVisibleCalendarMonth(area) {
   }
 
   return '';
+}
+
+function scrollCalendarToToday() {
+  const area = document.getElementById('calendar-scroll-area');
+  if (!area) return;
+
+  const todayCell = area.querySelector('[data-calendar-iso].calendar-today, .calendar-today-list');
+
+  if (!todayCell) return;
+
+  requestAnimationFrame(() => {
+    area.scrollTop = Math.max(todayCell.offsetTop - 8, 0);
+  });
 }
 
 setupHomeEvents();
