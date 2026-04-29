@@ -299,11 +299,25 @@ async function loadHome() {
 
 function setupHomeEvents() {
   document.getElementById('home-refresh').addEventListener('click', () => loadView('home'));
-  document.getElementById('home-apply-days').addEventListener('click', () => {
-    const nextDays = Number(document.getElementById('due-days').value || window.APP_CONFIG.DEFAULT_DUE_DAYS || 7);
-    state.dueDays = Math.max(1, nextDays);
-    loadView('home');
-  });
+  document.getElementById('home-apply-days').addEventListener('click', async () => {
+  const nextDays = Number(document.getElementById('due-days').value || window.APP_CONFIG.DEFAULT_DUE_DAYS || 7);
+  const safeDays = Math.max(1, nextDays);
+
+  try {
+    setLoading(true);
+    setError('');
+
+    await apiGet('setHomeDueDays', { days: safeDays });
+
+    state.dueDays = safeDays;
+    await loadView('home');
+  } catch (err) {
+    console.error(err);
+    setError(err.message || '日数の保存に失敗しました。');
+  } finally {
+    setLoading(false);
+  }
+});
   document.getElementById('due-days').addEventListener('keydown', (event) => {
     if (event.key === 'Enter') document.getElementById('home-apply-days').click();
   });
