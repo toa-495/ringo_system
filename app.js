@@ -1514,13 +1514,12 @@ function scrollCalendarToToday() {
   const area = document.getElementById('calendar-scroll-area');
   if (!area) return;
 
-  const todayCell = area.querySelector('[data-calendar-iso].calendar-today, .calendar-today-list');
-
+  const todayCell = area.querySelector('.calendar-today, .calendar-today-list');
   if (!todayCell) return;
 
-  requestAnimationFrame(() => {
+  setTimeout(() => {
     area.scrollTop = Math.max(todayCell.offsetTop - 8, 0);
-  });
+  }, 100);
 }
 
 setupHomeEvents();
