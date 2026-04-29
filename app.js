@@ -20,14 +20,41 @@ const el = {
   modalClose: document.getElementById('modal-close'),
 };
 
-async function apiGet(action, params = {}) {
-  const url = new URL(window.APP_CONFIG.GAS_BASE_URL);
-  url.searchParams.set('action', action);
-  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-  const res = await fetch(url.toString());
-  const json = await res.json();
-  if (!json.ok) throw new Error(json.error || 'APIエラー');
-  return json.data;
+function apiGet(action, params = {}) {
+  return new Promise((resolve, reject) => {
+    const callbackName = `jsonp_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
+
+    const url = new URL(window.APP_CONFIG.GAS_BASE_URL);
+    url.searchParams.set('action', action);
+    url.searchParams.set('callback', callbackName);
+
+    Object.entries(params).forEach(([key, value]) => {
+      url.searchParams.set(key, value);
+    });
+
+    const script = document.createElement('script');
+
+    window[callbackName] = (json) => {
+      delete window[callbackName];
+      script.remove();
+
+      if (!json.ok) {
+        reject(new Error(json.error || 'APIエラー'));
+        return;
+      }
+
+      resolve(json.data);
+    };
+
+    script.onerror = () => {
+      delete window[callbackName];
+      script.remove();
+      reject(new Error('GAS APIの読み込みに失敗しました'));
+    };
+
+    script.src = url.toString();
+    document.body.appendChild(script);
+  });
 }
 
 function setLoading(show) { el.loading.classList.toggle('hidden', !show); }
