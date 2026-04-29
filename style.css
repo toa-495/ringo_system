@@ -621,3 +621,55 @@ button {
     min-height: 132px;
   }
 }
+
+/* Home refinement: keep the three summary counters horizontal on mobile */
+.summary-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.summary-card {
+  min-width: 0;
+  text-align: center;
+}
+
+.summary-card .summary-label {
+  font-size: 0.68rem;
+  line-height: 1.35;
+}
+
+.summary-card .summary-number {
+  font-size: clamp(1.35rem, 7vw, 1.9rem);
+}
+
+.today-date-text {
+  margin: 0;
+  font-size: 1.55rem;
+  font-weight: 800;
+  color: var(--primary);
+  letter-spacing: 0.02em;
+}
+
+.static-row {
+  cursor: default;
+}
+
+@media (max-width: 430px) {
+  .summary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .summary-card {
+    padding: 10px 6px;
+  }
+
+  .data-row {
+    grid-template-columns: 1fr auto;
+  }
+
+  .data-sub {
+    justify-items: end;
+    grid-auto-flow: row;
+    justify-content: end;
+  }
+}

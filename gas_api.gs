@@ -101,20 +101,19 @@ function api_isFalseLike_(value) {
 
 function api_getHomeTopInfo_() {
   const sheetName = 'ホーム画面🍎';
-  const todayRaw = api_rawValue_(sheetName, 'C3');
+  const today = new Date();
+  const todayLabel = Utilities.formatDate(today, Session.getScriptTimeZone(), 'M月d日(E)');
   const daysUntilEvent = api_value_(sheetName, 'D5');
   const currentPhase = api_value_(sheetName, 'G5');
-  const scheduleValues = ['C16', 'C18', 'C20', 'C22']
-    .map(a1 => api_value_(sheetName, a1))
-    .filter(v => String(v || '').trim() !== '');
 
   return {
-    todayLabel: api_fmtJpDate_(todayRaw) || '今日の日程',
+    todayLabel,
     daysUntilEvent,
     currentPhase,
-    todaySchedule: scheduleValues,
+    todaySchedule: todayLabel,
   };
 }
+
 
 function api_getTasks_() {
   const sh = api_sheet_('タスク書き出し、進捗');
@@ -122,21 +121,56 @@ function api_getTasks_() {
   const startRow = 5;
   const lastRow = sh.getLastRow();
   if (lastRow < startRow) return [];
-  const values = sh.getRange(startRow, 1, lastRow - startRow + 1, 25).getValues();
 
-  return values.map(row => ({
-    no: row[13],
-    taskName: row[14],
-    parentTask: row[3],
-    assignee: row[15],
-    dueDate: api_fmtDate_(row[16]),
-    targetDate: api_fmtDate_(row[17]),
-    startPlan: api_fmtDate_(row[18]),
-    status: row[21],
-    progress: row[22],
-    memo: row[24],
-  })).filter(t => t.no !== '' && t.no !== null);
+  const values = sh.getRange(startRow, 1, lastRow - startRow + 1, 25).getValues();
+  const progressByNo = {};
+
+  values.forEach(row => {
+    const progressNo = row[13]; // N列：進捗側の固有No.
+    if (progressNo === '' || progressNo === null) return;
+    progressByNo[String(progressNo)] = {
+      no: progressNo,
+      progressTitle: row[14],
+      assignee: row[15],
+      dueDate: api_fmtDate_(row[16]),
+      targetDate: api_fmtDate_(row[17]),
+      startPlan: api_fmtDate_(row[18]),
+      daysLeft: row[20],
+      status: row[21],
+      progress: row[22],
+      memo: row[24],
+    };
+  });
+
+  return values.map(row => {
+    const no = row[2];       // C列：固有No.
+    const taskName = row[3]; // D列：タスクタイトル
+    const taskId = row[5];   // F列：WBS ID 例 1-2-3
+    if ((no === '' || no === null) && !taskName) return null;
+
+    const progress = progressByNo[String(no)] || {};
+    const parentId = String(taskId || '').split('-').slice(0, -1).join('-');
+
+    return {
+      no,
+      taskName,
+      taskId,
+      parentId,
+      parentTask: row[4],
+      level: row[7],
+      sortId: row[6],
+      assignee: progress.assignee || '',
+      dueDate: progress.dueDate || '',
+      targetDate: progress.targetDate || '',
+      startPlan: progress.startPlan || '',
+      daysLeft: progress.daysLeft || '',
+      status: progress.status || '',
+      progress: progress.progress ?? '',
+      memo: progress.memo || '',
+    };
+  }).filter(Boolean);
 }
+
 
 function api_getTaskDetail_(no) {
   return api_getTasks_().find(t => String(t.no) === String(no)) || null;

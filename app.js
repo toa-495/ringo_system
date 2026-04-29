@@ -123,17 +123,16 @@ function placeholder(view) {
   `;
 }
 
-function renderTodaySchedule(items) {
-  if (!items || items.length === 0) {
-    return '<p class="meta">今日の予定はまだ入っていません。</p>';
-  }
-
-  return `
-    <ul class="today-list">
-      ${items.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}
-    </ul>
-  `;
+function getTodayJapaneseLabel() {
+  const now = new Date();
+  const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
+  return `${now.getMonth() + 1}月${now.getDate()}日（${weekdays[now.getDay()]}）`;
 }
+
+function renderTodaySchedule(text) {
+  return `<p class="today-date-text">${escapeHtml(text || getTodayJapaneseLabel())}</p>`;
+}
+
 
 function renderTaskRows(tasks) {
   if (!tasks || tasks.length === 0) {
@@ -144,9 +143,6 @@ function renderTaskRows(tasks) {
     const title = escapeHtml(task.taskName || task.title || '無題のタスク');
     const assignee = escapeHtml(task.assignee || '未定');
     const dueDate = escapeHtml(task.dueDate || task.limit || '期限なし');
-    const status = escapeHtml(task.status || '');
-    const progress = escapeHtml(task.progress ?? '');
-    const memo = escapeHtml(task.memo || '');
 
     return `
       <button class="data-row task-row" type="button" data-modal="task" data-payload='${escapeHtml(JSON.stringify(task))}'>
@@ -156,14 +152,12 @@ function renderTaskRows(tasks) {
         </div>
         <div class="data-sub">
           <span>${dueDate}</span>
-          ${status ? `<span class="pill">${status}</span>` : ''}
-          ${progress !== '' ? `<span class="pill light">${progress}%</span>` : ''}
         </div>
       </button>
-      ${memo ? `<p class="row-memo">${memo}</p>` : ''}
     `;
   }).join('');
 }
+
 
 function renderQuestionRows(questions) {
   if (!questions || questions.length === 0) {
@@ -173,51 +167,68 @@ function renderQuestionRows(questions) {
   return questions.map((question) => {
     const text = escapeHtml(question.question || question.content || '無題の疑問');
     const owner = escapeHtml(question.owner || question.assignee || question.questioner || '未定');
-    const due = escapeHtml(question.due || question.priority || question.deadline || '');
-    const answer = escapeHtml(question.answer || question.memo || '');
+    const due = escapeHtml(question.due || question.priority || question.deadline || '期限未設定');
 
     return `
-      <button class="data-row question-row" type="button" data-modal="question" data-payload='${escapeHtml(JSON.stringify(question))}'>
+      <div class="data-row question-row static-row">
         <div class="data-main">
           <strong>${text}</strong>
           <span class="meta">疑問ぬし：${owner}</span>
         </div>
         <div class="data-sub">
-          ${due ? `<span>${due}</span>` : '<span>期限未設定</span>'}
+          <span>${due}</span>
         </div>
-      </button>
-      ${answer ? `<p class="row-memo">${answer}</p>` : ''}
+      </div>
     `;
   }).join('');
 }
 
+
+function renderTaskDetail(payload) {
+  const items = [
+    ['タスクタイトル', payload.taskName],
+    ['ID', payload.taskId],
+    ['固有No.', payload.no],
+    ['親タスクID', payload.parentId],
+    ['親タスク', payload.parentTask],
+    ['担当者', payload.assignee || '未定'],
+    ['絶対！期日', payload.dueDate || '期限なし'],
+    ['目標期日', payload.targetDate],
+    ['着手予定時期', payload.startPlan],
+    ['進捗状態', payload.status],
+    ['進捗％', payload.progress],
+    ['進捗詳細・メモ', payload.memo],
+  ].filter(([, value]) => value !== undefined && value !== null && value !== '');
+
+  return `
+    <p class="eyebrow">タスク詳細</p>
+    <h3>${escapeHtml(payload.taskName || '詳細')}</h3>
+    <dl class="detail-list">
+      ${items.map(([key, value]) => `
+        <div>
+          <dt>${escapeHtml(key)}</dt>
+          <dd>${escapeHtml(value)}</dd>
+        </div>
+      `).join('')}
+    </dl>
+  `;
+}
+
 function bindRowModals() {
-  document.querySelectorAll('[data-modal][data-payload]').forEach((button) => {
+  document.querySelectorAll('[data-modal="task"][data-payload]').forEach((button) => {
     button.addEventListener('click', () => {
-      const type = button.dataset.modal;
       const payload = JSON.parse(button.dataset.payload);
-      const title = type === 'task' ? 'タスク詳細' : '疑問詳細';
-      openModal(`
-        <p class="eyebrow">${title}</p>
-        <h3>${escapeHtml(payload.taskName || payload.question || payload.title || '詳細')}</h3>
-        <dl class="detail-list">
-          ${Object.entries(payload).map(([key, value]) => `
-            <div>
-              <dt>${escapeHtml(key)}</dt>
-              <dd>${escapeHtml(value)}</dd>
-            </div>
-          `).join('')}
-        </dl>
-      `);
+      openModal(renderTaskDetail(payload));
     });
   });
 }
 
+
 function renderTopInfo(topInfo) {
-  document.getElementById('home-today-label').textContent = topInfo?.todayLabel || '今日の日程';
+  document.getElementById('home-today-label').textContent = '今日の日程';
   document.getElementById('home-days-left').textContent = topInfo?.daysUntilEvent ?? '-';
   document.getElementById('home-current-phase').textContent = topInfo?.currentPhase || '現在フェイズ未設定';
-  document.getElementById('home-today-schedule').innerHTML = renderTodaySchedule(topInfo?.todaySchedule || []);
+  document.getElementById('home-today-schedule').innerHTML = renderTodaySchedule(topInfo?.todaySchedule || topInfo?.todayLabel);
 }
 
 async function renderHome() {
