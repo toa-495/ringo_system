@@ -909,8 +909,8 @@ button {
 }
 
 .milestone-sheet {
-  border-top: 1px dashed rgba(255, 255, 255, 0.28);
-  border-left: 1px dashed rgba(255, 255, 255, 0.28);
+  border-top: 1px dashed rgba(160, 160, 160, 0.4);
+  border-left: 1px dashed rgba(160, 160, 160, 0.4);
 }
 
 .milestone-editable-cell {
@@ -925,14 +925,14 @@ button {
 .milestone-sheet {
   border-collapse: separate !important;
   border-spacing: 0 !important;
-  border-top: 1px dashed rgba(255, 255, 255, 0.55) !important;
-  border-left: 1px dashed rgba(255, 255, 255, 0.55) !important;
+  border-top: 1px dashed rgba(160, 160, 160, 0.4) !important;
+  border-left: 1px dashed rgba(160, 160, 160, 0.4) !important;
 }
 
 .milestone-sheet td {
-  border-right: 1px dashed rgba(255, 255, 255, 0.55) !important;
-  border-bottom: 1px dashed rgba(255, 255, 255, 0.55) !important;
-  box-shadow: inset -1px -1px 0 rgba(255, 255, 255, 0.12) !important;
+  border-right: 1px dashed rgba(160, 160, 160, 0.4) !important;
+  border-bottom: 1px dashed rgba(160, 160, 160, 0.4) !important;
+  box-shadow: inset -1px -1px 0 rgba(160, 160, 160, 0.4) !important;
 }
 
 .gantt-head {
@@ -952,8 +952,8 @@ button {
   min-width: 1800px;
   width: max-content;
   table-layout: fixed;
-  border-top: 1px dashed rgba(255, 255, 255, 0.55);
-  border-left: 1px dashed rgba(255, 255, 255, 0.55);
+  border-top: 1px dashed rgba(160, 160, 160, 0.4);
+  border-left: 1px dashed rgba(160, 160, 160, 0.4);
 }
 
 .gantt-sheet th,
@@ -963,8 +963,8 @@ button {
   max-width: 72px;
   height: 32px;
   padding: 4px;
-  border-right: 1px dashed rgba(255, 255, 255, 0.55);
-  border-bottom: 1px dashed rgba(255, 255, 255, 0.55);
+  border-right: 1px dashed rgba(160, 160, 160, 0.4);
+  border-bottom: 1px dashed rgba(160, 160, 160, 0.4);
   font-size: 11px;
   line-height: 1.25;
   text-align: center;
