@@ -857,6 +857,7 @@ async function loadMilestones() {
     `;
 
     bindMilestoneGridEvents();
+    syncMilestoneAndGanttScroll();
   } catch (err) {
     console.error(err);
     setError(err.message || 'マイルストーンの読み込みに失敗しました。');
@@ -1123,26 +1124,57 @@ function renderGanttGrid(data) {
 }
 
 function renderGanttRow(row) {
-  let taskPlaced = false;
+  const cells = row.cells || [];
+  let html = '';
+  let i = 0;
 
-  return `
-    <tr>
-      ${row.cells.map(cell => {
-        const isActive = String(cell).trim() === '1';
-        const label = isActive && !taskPlaced ? row.taskName : '';
+  while (i < cells.length) {
+    const isActive = String(cells[i]).trim() === '1';
 
-        if (isActive && !taskPlaced) {
-          taskPlaced = true;
-        }
+    if (!isActive) {
+      html += '<td></td>';
+      i++;
+      continue;
+    }
 
-        return `
-          <td class="${isActive ? 'gantt-active' : ''}">
-            ${label ? `<span class="gantt-task-label">${escapeHtml(label)}</span>` : ''}
-          </td>
-        `;
-      }).join('')}
-    </tr>
-  `;
+    let span = 1;
+    while (i + span < cells.length && String(cells[i + span]).trim() === '1') {
+      span++;
+    }
+
+    html += `
+      <td class="gantt-active" colspan="${span}">
+        <span class="gantt-task-label">${escapeHtml(row.taskName || '')}</span>
+      </td>
+    `;
+
+    i += span;
+  }
+
+  return `<tr>${html}</tr>`;
+}
+
+function syncMilestoneAndGanttScroll() {
+  const milestoneWrap = document.querySelector('.milestone-sheet-wrap');
+  const ganttWrap = document.querySelector('.gantt-sheet-wrap');
+
+  if (!milestoneWrap || !ganttWrap) return;
+
+  let syncing = false;
+
+  const sync = (from, to) => {
+    if (syncing) return;
+
+    syncing = true;
+    to.scrollLeft = from.scrollLeft;
+
+    requestAnimationFrame(() => {
+      syncing = false;
+    });
+  };
+
+  milestoneWrap.addEventListener('scroll', () => sync(milestoneWrap, ganttWrap));
+  ganttWrap.addEventListener('scroll', () => sync(ganttWrap, milestoneWrap));
 }
 
 function bindMilestoneGridEvents() {
