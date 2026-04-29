@@ -834,30 +834,18 @@ async function loadMilestones() {
         <div class="section-head">
           <div>
             <p class="eyebrow">Milestones</p>
-            <h3>マイルストーン</h3>
-            <p class="meta">マイルストーンとガントチャートを横スクロールで確認できます。</p>
+            <h3>マイルストーン・ガント</h3>
+            <p class="meta">横スクロールで全体を確認できます。</p>
           </div>
         </div>
 
-        <div class="milestone-sheet-wrap">
-          ${renderMilestoneGrid(milestoneData)}
-        </div>
-
-        <div class="section-head gantt-head">
-          <div>
-            <p class="eyebrow">Gantt</p>
-            <h3>ガントチャート</h3>
-          </div>
-        </div>
-
-        <div class="gantt-sheet-wrap">
-          ${renderGanttGrid(ganttData)}
+        <div class="combined-gantt-wrap">
+          ${renderCombinedMilestoneGantt(milestoneData, ganttData)}
         </div>
       </section>
     `;
 
     bindMilestoneGridEvents();
-    syncMilestoneAndGanttScroll();
   } catch (err) {
     console.error(err);
     setError(err.message || 'マイルストーンの読み込みに失敗しました。');
@@ -1121,6 +1109,75 @@ function renderGanttGrid(data) {
       </tbody>
     </table>
   `;
+}
+
+function renderCombinedMilestoneGantt(milestoneData, ganttData) {
+  const milestoneRows = milestoneData.rows || [];
+  const ganttRows = ganttData.rows || [];
+
+  if (!milestoneRows.length) {
+    return '<p class="meta">マイルストーンが登録されていません。</p>';
+  }
+
+  return `
+    <table class="combined-gantt-sheet">
+      <tbody>
+        ${milestoneRows.map((row, rowIndex) => `
+          <tr class="combined-row combined-milestone-row combined-milestone-row-${rowIndex + 2}">
+            ${row.map((cell, colIndex) => {
+              const sheetRow = rowIndex + 2;
+              const sheetCol = colIndex + 3;
+              const editable = sheetRow === 3 || sheetRow === 4;
+
+              return `
+                <td
+                  class="${editable ? 'milestone-editable-cell' : ''}"
+                  data-row="${sheetRow}"
+                  data-col="${sheetCol}"
+                  data-value="${escapeHtml(cell || '')}"
+                >
+                  ${escapeHtml(cell || '')}
+                </td>
+              `;
+            }).join('')}
+          </tr>
+        `).join('')}
+
+        ${ganttRows.map(row => renderCombinedGanttRow(row)).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderCombinedGanttRow(row) {
+  const cells = row.cells || [];
+  let html = '';
+  let i = 0;
+
+  while (i < cells.length) {
+    const isActive = String(cells[i]).trim() === '1';
+
+    if (!isActive) {
+      html += '<td class="combined-gantt-cell"></td>';
+      i++;
+      continue;
+    }
+
+    let span = 1;
+    while (i + span < cells.length && String(cells[i + span]).trim() === '1') {
+      span++;
+    }
+
+    html += `
+      <td class="combined-gantt-cell gantt-active" colspan="${span}">
+        <span class="gantt-task-label">${escapeHtml(row.taskName || '')}</span>
+      </td>
+    `;
+
+    i += span;
+  }
+
+  return `<tr class="combined-gantt-row">${html}</tr>`;
 }
 
 function renderGanttRow(row) {
