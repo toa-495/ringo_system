@@ -250,18 +250,23 @@ async function loadView(view) {
   setError('');
 
   if (view === 'home') {
-    await loadHome();
-    return;
-  }
+  await loadHome();
+  return;
+}
 
-  if (view === 'tasks') {
-    await loadTasks();
-    return;
-  }
+if (view === 'tasks') {
+  await loadTasks();
+  return;
+}
 
-  if (el.views[view]) {
-    el.views[view].innerHTML = placeholder(view);
-  }
+if (view === 'questions') {
+  await loadQuestions();
+  return;
+}
+
+if (el.views[view]) {
+  el.views[view].innerHTML = placeholder(view);
+}
 }
 
 function getTaskParentId(task) {
