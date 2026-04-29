@@ -276,6 +276,11 @@ if (view === 'guests') {
   return;
 }
 
+if (view === 'milestones') {
+  await loadMilestones();
+  return;
+}
+
 if (el.views[view]) {
   el.views[view].innerHTML = placeholder(view);
 }
@@ -812,6 +817,81 @@ function openMemoEditModal(memo = null) {
       setLoading(false);
     }
   });
+}
+
+async function loadMilestones() {
+  setLoading(true);
+  setError('');
+
+  try {
+    const milestones = await apiGet('getMilestones');
+
+    el.views.milestones.innerHTML = `
+      <section class="card milestone-page">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Milestones</p>
+            <h3>マイルストーン</h3>
+            <p class="meta">イベント本番までの大きな節目を確認できます。</p>
+          </div>
+        </div>
+
+        <div class="milestone-list">
+          ${renderMilestoneRows(milestones || [])}
+        </div>
+      </section>
+    `;
+
+    bindMilestoneEvents(milestones || []);
+  } catch (err) {
+    console.error(err);
+    setError(err.message || 'マイルストーンの読み込みに失敗しました。');
+  } finally {
+    setLoading(false);
+  }
+}
+
+function renderMilestoneRows(milestones) {
+  if (!milestones.length) {
+    return '<p class="meta">登録されているマイルストーンはありません。</p>';
+  }
+
+  return milestones.map(item => `
+    <div class="data-row milestone-row">
+      <button class="milestone-open-btn" type="button" data-milestone-id="${escapeHtml(item.id)}">
+        <div class="data-main">
+          <strong>${escapeHtml(item.title || '無題のマイルストーン')}</strong>
+          <span class="meta">${escapeHtml(item.date || '日付未設定')}</span>
+          ${item.detail ? `<span class="meta">${escapeHtml(String(item.detail).slice(0, 60))}${String(item.detail).length > 60 ? '…' : ''}</span>` : ''}
+        </div>
+        <div class="data-sub">
+          <span>${escapeHtml(item.type || 'MILESTONE')}</span>
+        </div>
+      </button>
+    </div>
+  `).join('');
+}
+
+function bindMilestoneEvents(milestones) {
+  document.querySelectorAll('.milestone-open-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const item = milestones.find(m => String(m.id) === String(btn.dataset.milestoneId));
+      if (item) openMilestoneDetailModal(item);
+    });
+  });
+}
+
+function openMilestoneDetailModal(item) {
+  openModal(`
+    <p class="eyebrow">マイルストーン詳細</p>
+    <h3>${escapeHtml(item.title || '無題のマイルストーン')}</h3>
+
+    <div class="detail-list">
+      ${renderDetailRow('日付', item.date || '未設定')}
+      ${renderDetailRow('種別', item.type || 'MILESTONE')}
+      ${renderDetailRow('詳細', item.detail || '未入力')}
+    </div>
+  `);
 }
 
 async function loadGuests() {
