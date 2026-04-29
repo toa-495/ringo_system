@@ -1047,7 +1047,26 @@ function openGuestEditModal(guest = null) {
 }
 
 function renderMilestoneGrid(data) {
-  ...
+  const phases = data.phases || [];
+  const tasks = data.tasks || [];
+
+  let html = '';
+
+  for (let i = 0; i < phases.length; i++) {
+    const phase = phases[i];
+    const task = tasks[i];
+
+    if (!phase && !task) continue;
+
+    html += `
+      <div class="milestone-cell">
+        ${phase ? `<div class="phase">${escapeHtml(phase)}</div>` : ''}
+        ${task ? `<div class="task">${escapeHtml(task)}</div>` : ''}
+      </div>
+    `;
+  }
+
+  return html;
 }
 
 setupHomeEvents();
