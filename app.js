@@ -227,7 +227,7 @@ function bindRowModals() {
 function renderTopInfo(topInfo) {
   document.getElementById('home-today-label').textContent = '今日の日程';
   const daysText = topInfo?.daysUntilEvent || topInfo?.daysLeft || '-';
-  document.getElementById('home-days-left').textContent = daysText;
+  document.getElementById('home-days-left').textContent = daysText === '-' ? '-' : `${daysText}日`;
   document.getElementById('home-current-phase').textContent = topInfo?.currentPhase || '現在フェイズ未設定';
   document.getElementById('home-today-schedule').innerHTML = renderTodaySchedule(topInfo?.todaySchedule || topInfo?.todayLabel);
 }
