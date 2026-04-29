@@ -824,7 +824,7 @@ async function loadMilestones() {
   setError('');
 
   try {
-    const milestones = await apiGet('getMilestones');
+    const data = await apiGet('getMilestoneGrid');
 
     el.views.milestones.innerHTML = `
       <section class="card milestone-page">
@@ -832,20 +832,17 @@ async function loadMilestones() {
           <div>
             <p class="eyebrow">Milestones</p>
             <h3>マイルストーン</h3>
-            <p class="meta">イベント本番までの大きな節目を確認できます。</p>
           </div>
         </div>
 
-        <div class="milestone-list">
-          ${renderMilestoneRows(milestones || [])}
+        <div class="milestone-grid">
+          ${renderMilestoneGrid(data)}
         </div>
       </section>
     `;
-
-    bindMilestoneEvents(milestones || []);
   } catch (err) {
     console.error(err);
-    setError(err.message || 'マイルストーンの読み込みに失敗しました。');
+    setError('読み込み失敗');
   } finally {
     setLoading(false);
   }
@@ -1047,6 +1044,10 @@ function openGuestEditModal(guest = null) {
       setLoading(false);
     }
   });
+}
+
+function renderMilestoneGrid(data) {
+  ...
 }
 
 setupHomeEvents();
