@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>林檎の唄。イベント管理</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <h1>林檎の唄。管理</h1>
+      <p class="subtitle">第1段階（読むだけUI）</p>
+    </header>
+
+    <main id="app">
+      <section id="view-home" class="view active"></section>
+      <section id="view-tasks" class="view"></section>
+      <section id="view-schedule" class="view"></section>
+      <section id="view-questions" class="view"></section>
+      <section id="view-memos" class="view"></section>
+      <section id="view-others" class="view"></section>
+    </main>
+
+    <div id="loading" class="loading hidden">読み込み中...</div>
+    <div id="error" class="error hidden"></div>
+
+    <div id="modal" class="modal hidden" role="dialog" aria-modal="true">
+      <div class="modal-content">
+        <button id="modal-close" class="icon-btn">✕</button>
+        <div id="modal-body"></div>
+      </div>
+    </div>
+
+    <nav class="bottom-nav">
+      <button data-view="home" class="nav-btn active">ホーム</button>
+      <button data-view="tasks" class="nav-btn">タスク</button>
+      <button data-view="schedule" class="nav-btn">予定</button>
+      <button data-view="questions" class="nav-btn">疑問</button>
+      <button data-view="memos" class="nav-btn">メモ</button>
+      <button data-view="others" class="nav-btn">その他</button>
+    </nav>
+
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
