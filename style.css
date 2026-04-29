@@ -1172,3 +1172,51 @@ button {
   flex-direction: column;
   gap: 8px;
 }
+
+.calendar-page {
+  position: relative;
+}
+
+.calendar-month-float {
+  position: sticky;
+  top: 0;
+  z-index: 12;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 58px;
+  margin: 4px 0 10px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #111;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+}
+
+.calendar-grid-wrap {
+  max-height: 68vh;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.calendar-grid-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+}
+
+.calendar-sunday {
+  color: #d93025 !important;
+}
+
+.calendar-saturday {
+  color: #1a73e8 !important;
+}
+
+.calendar-list {
+  max-height: 68vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
