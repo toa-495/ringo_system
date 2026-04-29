@@ -751,6 +751,7 @@ button {
 }
 
 .form-stack input,
+.form-stack select,
 .form-stack textarea {
   width: 100%;
   border: 1px solid rgba(120, 63, 28, 0.18);
