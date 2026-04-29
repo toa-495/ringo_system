@@ -1311,9 +1311,13 @@ async function loadCalendar() {
           <button class="view-switch-btn" type="button" data-calendar-mode="list">縦表示</button>
         </div>
 
-        <div id="calendar-content">
-          ${renderCalendarGrid(data)}
-        </div>
+        <div class="calendar-month-float" id="calendar-month-float">
+  ${escapeHtml(getCalendarCurrentMonth(data, 'grid'))}
+</div>
+
+<div id="calendar-content">
+  ${renderCalendarGrid(data)}
+</div>
       </section>
     `;
 
@@ -1334,12 +1338,21 @@ function bindCalendarSwitch(data) {
 
       const mode = btn.dataset.calendarMode;
       const content = document.getElementById('calendar-content');
+      const monthFloat = document.getElementById('calendar-month-float');
 
       content.innerHTML = mode === 'list'
         ? renderCalendarList(data)
         : renderCalendarGrid(data);
+
+      if (monthFloat) {
+        monthFloat.textContent = getCalendarCurrentMonth(data, mode);
+      }
+
+      bindCalendarScrollMonth(data, mode);
     });
   });
+
+  bindCalendarScrollMonth(data, 'grid');
 }
 
 function renderCalendarGrid(data) {
@@ -1351,20 +1364,30 @@ function renderCalendarGrid(data) {
   }
 
   return `
-    <div class="calendar-grid-wrap">
+    <div class="calendar-grid-wrap" id="calendar-scroll-area">
       <table class="calendar-grid-table">
         <thead>
           <tr>
-            ${weekdays.map(day => `<th>${escapeHtml(day || '')}</th>`).join('')}
+            ${weekdays.map((day, index) => `
+              <th class="${getCalendarDayClass(index)}">${escapeHtml(day || '')}</th>
+            `).join('')}
           </tr>
         </thead>
         <tbody>
           ${weeks.map(week => `
             <tr class="calendar-date-row">
-              ${week.dateRow.map(date => `<td>${escapeHtml(date || '')}</td>`).join('')}
+              ${week.dateRow.map((date, index) => `
+                <td class="${getCalendarDayClass(index)}" data-calendar-month="${escapeHtml(extractMonthFromDateText(date))}">
+                  ${escapeHtml(date || '')}
+                </td>
+              `).join('')}
             </tr>
             <tr class="calendar-event-row">
-              ${week.eventRow.map(text => `<td>${escapeHtml(text || '')}</td>`).join('')}
+              ${week.eventRow.map((text, index) => `
+                <td class="${getCalendarDayClass(index)}">
+                  ${escapeHtml(text || '')}
+                </td>
+              `).join('')}
             </tr>
           `).join('')}
         </tbody>
@@ -1381,17 +1404,94 @@ function renderCalendarList(data) {
   }
 
   return `
-    <div class="calendar-list">
-      ${events.map(item => `
-        <div class="data-row calendar-list-row">
-          <div class="data-main">
-            <strong>${escapeHtml(item.date || '日付未設定')} ${escapeHtml(item.weekday || '')}</strong>
-            <span class="meta">${escapeHtml(item.text || '予定なし')}</span>
+    <div class="calendar-list" id="calendar-scroll-area">
+      ${events.map(item => {
+        const dayClass = getCalendarWeekdayClassByText(item.weekday);
+
+        return `
+          <div class="data-row calendar-list-row" data-calendar-month="${escapeHtml(extractMonthFromDateText(item.date))}">
+            <div class="data-main">
+              <strong class="${dayClass}">
+                ${escapeHtml(item.date || '日付未設定')} ${escapeHtml(item.weekday || '')}
+              </strong>
+              <span class="meta">${escapeHtml(item.text || '予定なし')}</span>
+            </div>
           </div>
-        </div>
-      `).join('')}
+        `;
+      }).join('')}
     </div>
   `;
+}
+
+function getCalendarDayClass(index) {
+  if (index === 0) return 'calendar-sunday';
+  if (index === 6) return 'calendar-saturday';
+  return '';
+}
+
+function getCalendarWeekdayClassByText(weekday) {
+  const text = String(weekday || '');
+  if (text.includes('日')) return 'calendar-sunday';
+  if (text.includes('土')) return 'calendar-saturday';
+  return '';
+}
+
+function extractMonthFromDateText(dateText) {
+  const text = String(dateText || '').trim();
+
+  const matchMonth = text.match(/(\d{1,2})月/);
+  if (matchMonth) return `${Number(matchMonth[1])}月`;
+
+  const matchSlash = text.match(/(\d{1,2})\/\d{1,2}/);
+  if (matchSlash) return `${Number(matchSlash[1])}月`;
+
+  return '';
+}
+
+function getCalendarCurrentMonth(data, mode) {
+  if (mode === 'list') {
+    const first = (data.events || []).find(item => item.date || item.text);
+    return extractMonthFromDateText(first?.date) || '月未設定';
+  }
+
+  for (const week of data.weeks || []) {
+    for (const date of week.dateRow || []) {
+      const month = extractMonthFromDateText(date);
+      if (month) return month;
+    }
+  }
+
+  return '月未設定';
+}
+
+function bindCalendarScrollMonth(data, mode) {
+  const monthFloat = document.getElementById('calendar-month-float');
+  const area = document.getElementById('calendar-scroll-area');
+
+  if (!monthFloat || !area) return;
+
+  area.addEventListener('scroll', () => {
+    const month = findVisibleCalendarMonth(area);
+    if (month) monthFloat.textContent = month;
+  });
+}
+
+function findVisibleCalendarMonth(area) {
+  const items = area.querySelectorAll('[data-calendar-month]');
+  const areaRect = area.getBoundingClientRect();
+
+  for (const item of items) {
+    const month = item.dataset.calendarMonth;
+    if (!month) continue;
+
+    const rect = item.getBoundingClientRect();
+
+    if (rect.bottom >= areaRect.top + 20 && rect.top <= areaRect.bottom) {
+      return month;
+    }
+  }
+
+  return '';
 }
 
 setupHomeEvents();
