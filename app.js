@@ -428,7 +428,7 @@ async function openTaskAddModal(parentTask = null) {
 
 function renderTaskAddModal({ options = {}, parentOptions = [], parentTask = null }) {
   const forcedParentLabel = parentTask
-    ? `${parentTask.no || ''}. ${parentTask.taskName || parentTask.title || ''}`.trim()
+    ? `${parentTask.no || ''}.${parentTask.taskName || parentTask.title || ''}`.trim()
     : '';
 
   const forcedParentValue = parentTask
