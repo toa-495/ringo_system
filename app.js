@@ -1397,10 +1397,7 @@ function renderCalendarGrid(data) {
             <tr class="calendar-date-row">
               ${week.dateRow.map((dateObj, index) => `
                 <td
-  class="${getCalendarDayClass(index)} ${dateObj?.isToday ? 'calendar-today' : ''} ${isPastCalendarDate(dateObj?.iso) ? 'calendar-past' : ''} calendar-editable-event"
-  data-row="${escapeHtml(eventObj?.row || '')}"
-  data-col="${escapeHtml(eventObj?.col || '')}"
-  data-value="${escapeHtml(eventObj?.text || '')}"
+  class="${getCalendarDayClass(index)} ${dateObj?.isToday ? 'calendar-today' : ''} ${isPastCalendarDate(dateObj?.iso) ? 'calendar-past' : ''}"
 >
                   <div class="calendar-cell-inner calendar-date-inner">
                     ${escapeHtml(dateObj?.text || '')}
@@ -1412,7 +1409,12 @@ function renderCalendarGrid(data) {
               ${week.eventRow.map((eventObj, index) => {
                 const dateObj = week.dateRow[index] || {};
                 return `
-                  <td class="${getCalendarDayClass(index)} ${dateObj?.isToday ? 'calendar-today' : ''} ${isPastCalendarDate(dateObj?.iso) ? 'calendar-past' : ''}">
+                  <td
+  class="${getCalendarDayClass(index)} ${dateObj?.isToday ? 'calendar-today' : ''} ${isPastCalendarDate(dateObj?.iso) ? 'calendar-past' : ''} calendar-editable-event"
+  data-row="${escapeHtml(eventObj?.row || '')}"
+  data-col="${escapeHtml(eventObj?.col || '')}"
+  data-value="${escapeHtml(eventObj?.text || '')}"
+>
                     <div class="calendar-cell-inner calendar-event-inner">
                       ${escapeHtml(eventObj?.text || '')}
                     </div>
