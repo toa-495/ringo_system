@@ -1352,6 +1352,10 @@ function bindCalendarSwitch(data) {
         ? renderCalendarList(data)
         : renderCalendarGrid(data);
 
+      if (mode === 'grid') {
+  bindCalendarSizeControl();
+}
+
       if (monthFloat) {
         monthFloat.textContent = getCalendarCurrentMonth(data, mode);
       }
