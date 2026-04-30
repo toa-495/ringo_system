@@ -454,9 +454,9 @@ function renderTaskAddModal({ options = {}, parentOptions = [], parentTask = nul
   `;
 }
 
-function renderParentSelect(parentOptions, selectedValue = '', disabled = false) {
+function renderParentSelect(parentOptions, selectedValue = '', disabled = false, name = 'parentTask') {
   return `
-    <select name="parentTask" ${disabled ? 'disabled' : ''}>
+    <select name="${escapeHtml(name)}" ${disabled ? 'disabled' : ''}>
       <option value="">親タスク未定</option>
       ${(parentOptions || []).map(item => {
         const value = item.label || '';
@@ -575,7 +575,7 @@ function renderTaskBulkRow(parentOptions = [], selectedParent = '', fixedParent 
         placeholder="タスクタイトル"
       >
 
-      ${renderParentSelect(parentOptions, selectedParent, fixedParent)}
+      ${renderParentSelect(parentOptions, selectedParent, fixedParent, `parentTask_${index}`)}
 
       ${fixedParent ? `<input type="hidden" name="parentTask_${index}" value="${escapeHtml(selectedParent)}">` : ''}
     </div>
@@ -659,16 +659,16 @@ if (bulkForm) {
   bulkForm.addEventListener('submit', async event => {
     event.preventDefault();
 
-    const rows = [...bulkForm.querySelectorAll('[data-task-bulk-row]')].map(row => {
-  const taskName = row.querySelector('input[name^="taskName_"]')?.value || '';
-      const parentSelect = row.querySelector('select[name="parentTask"]');
-      const parentHidden = row.querySelector('input[type="hidden"][name^="parentTask_"]');
+    const rows = [...bulkForm.querySelectorAll('[data-task-bulk-row]')].map((row, index) => {
+  const taskName = row.querySelector(`input[name="taskName_${index}"]`)?.value || '';
+  const parentSelect = row.querySelector(`select[name="parentTask_${index}"]`);
+  const parentHidden = row.querySelector(`input[name="parentTask_${index}"]`);
 
-      return {
-        taskName: taskName.trim(),
-        parentTask: String(parentHidden?.value || parentSelect?.value || '').trim(),
-      };
-    }).filter(row => row.taskName);
+  return {
+    taskName: taskName.trim(),
+    parentTask: String(parentHidden?.value || parentSelect?.value || '').trim(),
+  };
+}).filter(row => row.taskName);
 
     if (rows.length === 0) {
       alert('追加するタスク名を入力してください。');
