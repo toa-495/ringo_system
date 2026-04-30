@@ -255,11 +255,12 @@ function renderTaskDetail(payload) {
         </div>
       </div>
 
+            <div class="task-detail-parent-line">
+        <span>親タスク</span>
+        <strong>${renderDetailValue(parentTask)}</strong>
+      </div>
+
       <div class="task-detail-mini-grid">
-        <div>
-          <span>親タスク</span>
-          <strong>${renderDetailValue(parentTask)}</strong>
-        </div>
         <div>
           <span>絶対！期日</span>
           <strong>${renderDetailValue(dueDate)}</strong>
