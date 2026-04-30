@@ -300,6 +300,52 @@ function getTaskParentId(task) {
   return id.split('-').slice(0, -1).join('-');
 }
 
+function filterTasksByStatusKeepAncestors(tasks, tabKey) {
+  const safeTasks = tasks || [];
+
+  if (tabKey === 'all') return safeTasks;
+
+  const byId = new Map();
+  safeTasks.forEach((task) => {
+    const id = String(task.id || '').trim();
+    if (id) byId.set(id, task);
+  });
+
+  const shouldShowTask = (task) => {
+    if (tabKey === 'incomplete') return getTaskStatusKey(task) !== 'done';
+    return getTaskStatusKey(task) === tabKey;
+  };
+
+  const includeIds = new Set();
+
+  safeTasks.forEach((task) => {
+    const id = String(task.id || '').trim();
+
+    if (shouldShowTask(task)) {
+      if (id) includeIds.add(id);
+
+      let parentId = getTaskParentId(task);
+      while (parentId) {
+        includeIds.add(parentId);
+        const parentTask = byId.get(parentId);
+        parentId = parentTask ? getTaskParentId(parentTask) : '';
+      }
+    }
+  });
+
+  return safeTasks.filter((task) => {
+    const id = String(task.id || '').trim();
+
+    // IDが空白のタスクは「親タスク未定」として残す
+    if (!id) {
+      if (tabKey === 'incomplete') return getTaskStatusKey(task) !== 'done';
+      return shouldShowTask(task);
+    }
+
+    return includeIds.has(id);
+  });
+}
+
 function buildTaskTree(tasks) {
   const safeTasks = (tasks || [])
     .filter((task) => task && task.taskName)
@@ -413,6 +459,15 @@ function renderTaskStatusTabs(tasks) {
   `;
 }
 
+function bindTaskStatusTabs() {
+  document.querySelectorAll('[data-task-tab]').forEach((button) => {
+    button.addEventListener('click', () => {
+      state.taskStatusTab = button.dataset.taskTab || 'incomplete';
+      loadTasks();
+    });
+  });
+}
+
 function bindTaskStatusTabs(tasks) {
   document.querySelectorAll('[data-task-tab]').forEach((button) => {
     button.addEventListener('click', () => {
@@ -501,6 +556,23 @@ function renderTasksScreen(tasks) {
   bindRowModals();
 }
 
+function renderWbsProgress(task) {
+  const progress = normalizeProgress(task.progress);
+  const status = escapeHtml(task.status || '未設定');
+
+  return `
+    <div class="wbs-progress">
+      <div class="wbs-progress-top">
+        <span>${status}</span>
+        <strong>${progress}%</strong>
+      </div>
+      <div class="task-progress-track">
+        <div class="task-progress-fill" style="--progress:${progress}%"></div>
+      </div>
+    </div>
+  `;
+}
+
 function renderTaskTree(nodes) {
   if (!nodes || nodes.length === 0) return '<p class="meta">タスクはありません。</p>';
 
@@ -520,6 +592,7 @@ function renderTaskTree(nodes) {
             <span class="wbs-task-meta">${escapeHtml(task.assignee || '未定')}${task.dueDate ? ` / ${escapeHtml(task.dueDate)}` : ''}</span>
           </button>
           ${dueText ? `<span class="wbs-due-pill">${dueText}</span>` : ''}
+          ${renderWbsProgress(task)}
         </div>
         ${hasChildren ? `<div class="wbs-children">${task.children.map(renderNode).join('')}</div>` : ''}
       </div>
@@ -549,7 +622,11 @@ async function loadTasks() {
 
   try {
     const tasks = await apiGet('getTasks');
-    const tree = buildTaskTree(tasks || []);
+    const safeTasks = tasks || [];
+    const filteredTasks = filterTasksByStatusKeepAncestors(safeTasks, state.taskStatusTab || 'incomplete');
+    const tree = buildTaskTree(filteredTasks);
+
+    const activeTab = TASK_STATUS_TABS.find((tab) => tab.key === (state.taskStatusTab || 'incomplete')) || TASK_STATUS_TABS[0];
 
     el.views.tasks.innerHTML = `
       <section class="card task-manage-card">
@@ -557,11 +634,11 @@ async function loadTasks() {
           <div>
             <p class="eyebrow">Task Manage</p>
             <h3>タスク関連</h3>
-            <p class="meta">状態タブで絞り込み、親タスクの横のタブで子タスクを開閉できます。</p>
+            <p class="meta">${escapeHtml(activeTab.label)}：${filteredTasks.length}件 / 全${safeTasks.length}件</p>
           </div>
         </div>
 
-        ${renderTaskStatusTabs(tasks || [])}
+        ${renderTaskStatusTabs(safeTasks)}
 
         <div id="task-wbs-list" class="wbs-list">
           ${renderTaskTree(tree)}
@@ -569,7 +646,7 @@ async function loadTasks() {
       </section>
     `;
 
-    bindTaskStatusTabs(tasks || []);
+    bindTaskStatusTabs();
     bindWbsToggles();
     bindRowModals();
   } catch (err) {
