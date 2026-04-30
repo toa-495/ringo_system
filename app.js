@@ -386,6 +386,40 @@ function getTaskParentId(task) {
   return id.split('-').slice(0, -1).join('-');
 }
 
+function markAssigneeFilterAncestorOnly(tasks) {
+  const safeTasks = tasks || [];
+  const selectedUser = String(state.taskAssigneeFilter || '').trim();
+
+  if (!selectedUser) {
+    return safeTasks.map(task => ({
+      ...task,
+      __assigneeAncestorOnly: false,
+    }));
+  }
+
+  const directlyMatchedIds = new Set();
+
+  safeTasks.forEach(task => {
+    const id = String(task.id || '').trim();
+    const assigneeText = String(task.assignee || '').trim();
+
+    if (!id) return;
+
+    if (selectedUser && assigneeText.includes(selectedUser)) {
+      directlyMatchedIds.add(id);
+    }
+  });
+
+  return safeTasks.map(task => {
+    const id = String(task.id || '').trim();
+
+    return {
+      ...task,
+      __assigneeAncestorOnly: Boolean(id && !directlyMatchedIds.has(id)),
+    };
+  });
+}
+
 function filterTasksByStatusKeepAncestors(tasks, tabKey) {
   const safeTasks = tasks || [];
 
@@ -710,7 +744,7 @@ function renderTaskTree(nodes) {
     const taskJson = escapeHtml(JSON.stringify(task));
     const dueText = escapeHtml(formatDaysUntilDue(task.daysUntilDue));
 
-        const isAncestorOnly = task.__filterAncestorOnly === true;
+    const isAncestorOnly = task.__filterAncestorOnly === true || task.__assigneeAncestorOnly === true;
 
     if (isAncestorOnly) {
       return `
@@ -772,7 +806,7 @@ async function loadTasks() {
       ? await apiGet('getTasksByAssignee', { name: state.taskAssigneeFilter })
       : await apiGet('getTasks');
 
-    const safeTasks = tasks || [];
+       const safeTasks = markAssigneeFilterAncestorOnly(tasks || []);
     const filteredTasks = filterTasksByStatusKeepAncestors(safeTasks, state.taskStatusTab || 'incomplete');
     const tree = buildTaskTree(filteredTasks);
 
