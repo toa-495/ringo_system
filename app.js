@@ -485,7 +485,7 @@ function filterTasksByStatusKeepAncestors(tasks, tabKey) {
   if (tabKey === 'all') {
     return safeTasks.map((task) => ({
       ...task,
-      __filterAncestorOnly: false,
+      __filterAncestorOnly: task.__filterAncestorOnly === true,
     }));
   }
 
@@ -496,6 +496,9 @@ function filterTasksByStatusKeepAncestors(tasks, tabKey) {
   });
 
   const shouldShowTask = (task) => {
+    // 便宜上追加した親タスクは、状態一致していても「通常表示対象」にしない
+    if (task.__filterAncestorOnly === true) return false;
+
     if (tabKey === 'incomplete') return getTaskStatusKey(task) !== 'done';
     return getTaskStatusKey(task) === tabKey;
   };
@@ -525,8 +528,9 @@ function filterTasksByStatusKeepAncestors(tasks, tabKey) {
     .filter((task) => {
       const id = String(task.id || '').trim();
 
-      // IDが空白のタスクは「親タスク未定」として残す
+      // ID空白タスクは「親タスク未定」として残す
       if (!id) {
+        if (task.__filterAncestorOnly === true) return false;
         if (tabKey === 'incomplete') return getTaskStatusKey(task) !== 'done';
         return shouldShowTask(task);
       }
@@ -535,9 +539,11 @@ function filterTasksByStatusKeepAncestors(tasks, tabKey) {
     })
     .map((task) => {
       const id = String(task.id || '').trim();
+      const alreadyAncestorOnly = task.__filterAncestorOnly === true;
+
       return {
         ...task,
-        __filterAncestorOnly: Boolean(id && includeIds.has(id) && !matchedIds.has(id)),
+        __filterAncestorOnly: alreadyAncestorOnly || Boolean(id && includeIds.has(id) && !matchedIds.has(id)),
       };
     });
 }
@@ -575,7 +581,15 @@ function buildTaskTree(tasks) {
     items.forEach((item) => sortTree(item.children));
   };
   sortTree(roots);
-  return roots;
+    return roots.sort((a, b) => {
+    const aNoId = !String(a.id || '').trim();
+    const bNoId = !String(b.id || '').trim();
+
+    if (aNoId && !bNoId) return 1;
+    if (!aNoId && bNoId) return -1;
+
+    return (a.originalIndex || 0) - (b.originalIndex || 0);
+  });
 }
 
 function formatDaysUntilDue(value) {
