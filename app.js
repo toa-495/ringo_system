@@ -5,6 +5,8 @@ const state = {
   questionStatus: 'unresolved',
   questionOptions: { owners: [], dues: [] },
   taskStatusTab: 'incomplete',
+  taskAssigneeFilter: '',
+  taskFilterUsers: [],
 };
 
 const VIEW_TITLES = {
@@ -547,6 +549,34 @@ function renderProgressBar(progress) {
   `;
 }
 
+function renderTaskAssigneeFilter() {
+  const users = state.taskFilterUsers || [];
+
+  return `
+    <div class="task-assignee-filter">
+      <label for="task-assignee-select">担当者で絞り込み</label>
+      <select id="task-assignee-select">
+        <option value="">全員のタスク</option>
+        ${users.map(user => `
+          <option value="${escapeHtml(user)}" ${state.taskAssigneeFilter === user ? 'selected' : ''}>
+            ${escapeHtml(user)}
+          </option>
+        `).join('')}
+      </select>
+    </div>
+  `;
+}
+
+function bindTaskAssigneeFilter() {
+  const select = document.getElementById('task-assignee-select');
+  if (!select) return;
+
+  select.addEventListener('change', () => {
+    state.taskAssigneeFilter = select.value || '';
+    loadTasks();
+  });
+}
+
 function renderTaskStatusTabs(tasks) {
   const counts = TASK_STATUS_TABS.reduce((acc, tab) => {
     acc[tab.key] = filterTasksByStatus(tasks, tab.key).length;
@@ -734,12 +764,20 @@ async function loadTasks() {
   setError('');
 
   try {
-    const tasks = await apiGet('getTasks');
+    if (!state.taskFilterUsers || state.taskFilterUsers.length === 0) {
+      state.taskFilterUsers = await apiGet('getTaskFilterUsers');
+    }
+
+    const tasks = state.taskAssigneeFilter
+      ? await apiGet('getTasksByAssignee', { name: state.taskAssigneeFilter })
+      : await apiGet('getTasks');
+
     const safeTasks = tasks || [];
     const filteredTasks = filterTasksByStatusKeepAncestors(safeTasks, state.taskStatusTab || 'incomplete');
     const tree = buildTaskTree(filteredTasks);
 
     const activeTab = TASK_STATUS_TABS.find((tab) => tab.key === (state.taskStatusTab || 'incomplete')) || TASK_STATUS_TABS[0];
+    const filterLabel = state.taskAssigneeFilter ? ` / ${state.taskAssigneeFilter}` : '';
 
     el.views.tasks.innerHTML = `
       <section class="card task-manage-card">
@@ -747,10 +785,11 @@ async function loadTasks() {
           <div>
             <p class="eyebrow">Task Manage</p>
             <h3>タスク関連</h3>
-            <p class="meta">${escapeHtml(activeTab.label)}：${filteredTasks.length}件 / 全${safeTasks.length}件</p>
+            <p class="meta">${escapeHtml(activeTab.label)}${escapeHtml(filterLabel)}：${filteredTasks.length}件 / 全${safeTasks.length}件</p>
           </div>
         </div>
 
+        ${renderTaskAssigneeFilter()}
         ${renderTaskStatusTabs(safeTasks)}
 
         <div id="task-wbs-list" class="wbs-list">
@@ -759,6 +798,7 @@ async function loadTasks() {
       </section>
     `;
 
+    bindTaskAssigneeFilter();
     bindTaskStatusTabs();
     bindWbsToggles();
     bindRowModals();
