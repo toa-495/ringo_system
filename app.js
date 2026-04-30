@@ -432,8 +432,8 @@ function renderTaskAddModal({ options = {}, parentOptions = [], parentTask = nul
     : '';
 
   const forcedParentValue = parentTask
-    ? `${parentTask.no || ''}. ${parentTask.taskName || parentTask.title || ''}`.trim()
-    : '';
+  ? `${parentTask.no || ''}.${parentTask.taskName || parentTask.title || ''}`.trim()
+  : '';
 
   return `
     <p class="eyebrow">Task Add</p>
@@ -660,7 +660,7 @@ if (bulkForm) {
     event.preventDefault();
 
     const rows = [...bulkForm.querySelectorAll('[data-task-bulk-row]')].map(row => {
-      const taskName = row.querySelector('input[placeholder="タスクタイトル"]')?.value || '';
+  const taskName = row.querySelector('input[name^="taskName_"]')?.value || '';
       const parentSelect = row.querySelector('select[name="parentTask"]');
       const parentHidden = row.querySelector('input[type="hidden"][name^="parentTask_"]');
 
