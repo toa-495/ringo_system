@@ -1533,11 +1533,19 @@ function scrollCalendarToToday() {
   if (!todayCell) return;
 
   setTimeout(() => {
-    area.scrollTop = Math.max(todayCell.offsetTop - 8, 0);
+    if (todayCell.classList.contains('calendar-today-list')) {
+      todayCell.scrollIntoView({
+        behavior: 'auto',
+        block: 'start',
+        inline: 'nearest',
+      });
 
-    if (todayCell.offsetLeft !== undefined) {
-      area.scrollLeft = Math.max(todayCell.offsetLeft - 24, 0);
+      area.scrollTop = Math.max(area.scrollTop - 8, 0);
+      return;
     }
+
+    area.scrollTop = Math.max(todayCell.offsetTop - 8, 0);
+    area.scrollLeft = Math.max(todayCell.offsetLeft - 24, 0);
   }, 120);
 }
 
