@@ -303,7 +303,12 @@ function getTaskParentId(task) {
 function filterTasksByStatusKeepAncestors(tasks, tabKey) {
   const safeTasks = tasks || [];
 
-  if (tabKey === 'all') return safeTasks;
+  if (tabKey === 'all') {
+    return safeTasks.map((task) => ({
+      ...task,
+      __filterAncestorOnly: false,
+    }));
+  }
 
   const byId = new Map();
   safeTasks.forEach((task) => {
@@ -317,12 +322,16 @@ function filterTasksByStatusKeepAncestors(tasks, tabKey) {
   };
 
   const includeIds = new Set();
+  const matchedIds = new Set();
 
   safeTasks.forEach((task) => {
     const id = String(task.id || '').trim();
 
     if (shouldShowTask(task)) {
-      if (id) includeIds.add(id);
+      if (id) {
+        includeIds.add(id);
+        matchedIds.add(id);
+      }
 
       let parentId = getTaskParentId(task);
       while (parentId) {
@@ -333,17 +342,25 @@ function filterTasksByStatusKeepAncestors(tasks, tabKey) {
     }
   });
 
-  return safeTasks.filter((task) => {
-    const id = String(task.id || '').trim();
+  return safeTasks
+    .filter((task) => {
+      const id = String(task.id || '').trim();
 
-    // IDが空白のタスクは「親タスク未定」として残す
-    if (!id) {
-      if (tabKey === 'incomplete') return getTaskStatusKey(task) !== 'done';
-      return shouldShowTask(task);
-    }
+      // IDが空白のタスクは「親タスク未定」として残す
+      if (!id) {
+        if (tabKey === 'incomplete') return getTaskStatusKey(task) !== 'done';
+        return shouldShowTask(task);
+      }
 
-    return includeIds.has(id);
-  });
+      return includeIds.has(id);
+    })
+    .map((task) => {
+      const id = String(task.id || '').trim();
+      return {
+        ...task,
+        __filterAncestorOnly: Boolean(id && includeIds.has(id) && !matchedIds.has(id)),
+      };
+    });
 }
 
 function buildTaskTree(tasks) {
@@ -579,6 +596,22 @@ function renderTaskTree(nodes) {
     const taskJson = escapeHtml(JSON.stringify(task));
     const dueText = escapeHtml(formatDaysUntilDue(task.daysUntilDue));
 
+        const isAncestorOnly = task.__filterAncestorOnly === true;
+
+    if (isAncestorOnly) {
+      return `
+        <div class="wbs-node wbs-node-ancestor-only" data-task-id="${escapeHtml(task.id || '')}">
+          <div class="wbs-row wbs-row-ancestor-only" style="--indent:${indent}px">
+            <button class="wbs-toggle ${hasChildren ? '' : 'is-leaf'}" type="button" data-toggle-id="${escapeHtml(task.id || '')}" aria-label="子タスクを開閉" ${hasChildren ? '' : 'disabled'}>${hasChildren ? '▼' : '・'}</button>
+            <div class="wbs-ancestor-title">
+              ${escapeHtml(task.taskName || '無題のタスク')}
+            </div>
+          </div>
+          ${hasChildren ? `<div class="wbs-children">${task.children.map(renderNode).join('')}</div>` : ''}
+        </div>
+      `;
+    }
+
     return `
       <div class="wbs-node" data-task-id="${escapeHtml(task.id || '')}">
         <div class="wbs-row" style="--indent:${indent}px">
@@ -587,7 +620,7 @@ function renderTaskTree(nodes) {
             <span class="wbs-task-title">${escapeHtml(task.taskName || '無題のタスク')}</span>
             <span class="wbs-task-meta">${escapeHtml(task.assignee || '未定')}${task.dueDate ? ` / ${escapeHtml(task.dueDate)}` : ''}</span>
           </button>
-                   ${dueText ? `<span class="wbs-due-pill">${dueText}</span>` : ''}
+          ${dueText ? `<span class="wbs-due-pill">${dueText}</span>` : ''}
         </div>
         ${renderWbsProgress(task)}
         ${hasChildren ? `<div class="wbs-children">${task.children.map(renderNode).join('')}</div>` : ''}
