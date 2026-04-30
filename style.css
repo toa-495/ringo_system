@@ -1830,3 +1830,18 @@ button {
   font-weight: 800;
   padding: 12px 38px 12px 12px;
 }
+
+.task-edit-note {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+#task-edit-form input,
+#task-edit-form select,
+#task-edit-form textarea {
+  background: #fff;
+}
+
+#task-edit-form textarea {
+  min-height: 110px;
+}
