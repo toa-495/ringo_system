@@ -478,6 +478,34 @@ function renderParentSelect(parentOptions, selectedValue = '', disabled = false,
   `;
 }
 
+function normalizeParentTaskText(value) {
+  return String(value || '')
+    .trim()
+    .replace(/\s+/g, '')
+    .replace('．', '.');
+}
+
+function resolveSelectedParentTaskLabel(task, parentOptions = []) {
+  const current = normalizeParentTaskText(task.parentTask || '');
+
+  if (!current) return '';
+
+  const matched = parentOptions.find(item => {
+    const label = normalizeParentTaskText(item.label || '');
+    const noTitle = normalizeParentTaskText(`${item.no || ''}.${item.title || ''}`);
+    const titleOnly = normalizeParentTaskText(item.title || '');
+
+    return (
+      label === current ||
+      noTitle === current ||
+      titleOnly === current ||
+      current.endsWith(titleOnly)
+    );
+  });
+
+  return matched ? matched.label : task.parentTask || '';
+}
+
 function renderTaskAddSingleForm({ options = {}, parentOptions = [], parentTask = null, forcedParentValue = '' }) {
   const statusOptions = ['まだ💦', '順調！✨', '行き詰ってる…。', '完了！'];
   const assignees = options.assignees || [];
@@ -726,7 +754,7 @@ function renderTaskEditForm(task, options = {}, parentOptions = []) {
 
       <label>
   親タスク
-  ${renderParentSelect(parentOptions, task.parentTask || '')}
+  ${renderParentSelect(parentOptions, resolveSelectedParentTaskLabel(task, parentOptions))}
 </label>
 
       <label>
