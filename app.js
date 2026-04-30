@@ -1329,6 +1329,7 @@ async function loadCalendar() {
     bindCalendarSwitch(data);
     scrollCalendarToToday();
     bindCalendarSizeControl();
+    bindCalendarEditEvents();
   } catch (err) {
     console.error(err);
     setError(err.message || 'カレンダーの読み込みに失敗しました。');
@@ -1354,6 +1355,7 @@ function bindCalendarSwitch(data) {
 
       if (mode === 'grid') {
   bindCalendarSizeControl();
+  bindCalendarEditEvents();
 }
 
       if (monthFloat) {
@@ -1395,10 +1397,11 @@ function renderCalendarGrid(data) {
             <tr class="calendar-date-row">
               ${week.dateRow.map((dateObj, index) => `
                 <td
-                  class="${getCalendarDayClass(index)} ${dateObj?.isToday ? 'calendar-today' : ''} ${isPastCalendarDate(dateObj?.iso) ? 'calendar-past' : ''}"
-                  data-calendar-month="${escapeHtml(dateObj?.month || '')}"
-                  data-calendar-iso="${escapeHtml(dateObj?.iso || '')}"
-                >
+  class="${getCalendarDayClass(index)} ${dateObj?.isToday ? 'calendar-today' : ''} ${isPastCalendarDate(dateObj?.iso) ? 'calendar-past' : ''} calendar-editable-event"
+  data-row="${escapeHtml(eventObj?.row || '')}"
+  data-col="${escapeHtml(eventObj?.col || '')}"
+  data-value="${escapeHtml(eventObj?.text || '')}"
+>
                   <div class="calendar-cell-inner calendar-date-inner">
                     ${escapeHtml(dateObj?.text || '')}
                   </div>
@@ -1406,12 +1409,12 @@ function renderCalendarGrid(data) {
               `).join('')}
             </tr>
             <tr class="calendar-event-row">
-              ${week.eventRow.map((text, index) => {
+              ${week.eventRow.map((eventObj, index) => {
                 const dateObj = week.dateRow[index] || {};
                 return `
                   <td class="${getCalendarDayClass(index)} ${dateObj?.isToday ? 'calendar-today' : ''} ${isPastCalendarDate(dateObj?.iso) ? 'calendar-past' : ''}">
                     <div class="calendar-cell-inner calendar-event-inner">
-                      ${escapeHtml(text || '')}
+                      ${escapeHtml(eventObj?.text || '')}
                     </div>
                   </td>
                 `;
@@ -1438,10 +1441,13 @@ function renderCalendarList(data) {
 
         return `
           <div
-            class="data-row calendar-list-row ${item.isToday ? 'calendar-today-list' : ''} ${isPastCalendarDate(item.iso) ? 'calendar-past-list' : ''}"
-            data-calendar-month="${escapeHtml(item.month || extractMonthFromDateText(item.date))}"
-            data-calendar-iso="${escapeHtml(item.iso || '')}"
-          >
+  class="data-row calendar-list-row calendar-editable-event ${item.isToday ? 'calendar-today-list' : ''} ${isPastCalendarDate(item.iso) ? 'calendar-past-list' : ''}"
+  data-calendar-month="${escapeHtml(item.month || extractMonthFromDateText(item.date))}"
+  data-calendar-iso="${escapeHtml(item.iso || '')}"
+  data-row="${escapeHtml(item.row || '')}"
+  data-col="${escapeHtml(item.col || '')}"
+  data-value="${escapeHtml(item.text || '')}"
+>
             <div class="data-main">
               <strong class="${dayClass}">
                 ${escapeHtml(item.date || '日付未設定')} ${escapeHtml(item.weekday || '')}
@@ -1576,6 +1582,56 @@ function bindCalendarSizeControl() {
 
   range.addEventListener('input', applySize);
   applySize();
+}
+
+function bindCalendarEditEvents() {
+  document.querySelectorAll('.calendar-editable-event').forEach(cell => {
+    cell.addEventListener('click', () => {
+      openCalendarEventEditModal({
+        row: cell.dataset.row,
+        col: cell.dataset.col,
+        value: cell.dataset.value || '',
+      });
+    });
+  });
+}
+
+function openCalendarEventEditModal(item) {
+  openModal(`
+    <p class="eyebrow">予定編集</p>
+    <h3>カレンダー予定を編集</h3>
+
+    <div class="form-stack">
+      <label>予定内容
+        <textarea id="calendar-event-value">${escapeHtml(item.value || '')}</textarea>
+      </label>
+
+      <button id="calendar-event-save-btn" class="primary-btn" type="button">保存</button>
+    </div>
+  `);
+
+  document.getElementById('calendar-event-save-btn').addEventListener('click', async () => {
+    const value = document.getElementById('calendar-event-value').value.trim();
+
+    try {
+      setLoading(true);
+      setError('');
+
+      await apiGet('updateCalendarEvent', {
+        row: item.row,
+        col: item.col,
+        value,
+      });
+
+      closeModal();
+      await loadCalendar();
+    } catch (err) {
+      console.error(err);
+      setError(err.message || '予定の保存に失敗しました。');
+    } finally {
+      setLoading(false);
+    }
+  });
 }
 
 setupHomeEvents();
