@@ -1317,7 +1317,7 @@ async function loadCalendar() {
 
 <div class="calendar-size-control">
   <span>表示サイズ</span>
-  <input id="calendar-size-range" type="range" min="42" max="150" value="96">
+  <input id="calendar-size-range" type="range" min="38" max="150" value="96">
 </div>
 
 <div id="calendar-content">
