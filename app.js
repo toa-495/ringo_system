@@ -226,16 +226,16 @@ function formatDetailDate(value) {
 
 function renderTaskDetail(payload) {
   const no = payload.no || '-';
-  const title = payload.title || payload.taskName;
-  const assignee = payload.assignee;
+  const title = payload.title || payload.taskName || '';
+  const assignee = payload.assignee || '';
   const parentTask = getParentTaskLabel(payload);
-  const dueDate = formatDetailDate(payload.dueDate);
-  const targetDate = formatDetailDate(payload.targetDate);
-  const startPlan = payload.startPlan;
+  const dueDate = payload.dueDate || '';
+  const targetDate = payload.targetDate || '';
+  const startPlan = payload.startPlan || '';
   const daysUntilDue = formatDaysUntilDue(payload.daysUntilDue);
-  const status = payload.status;
+  const status = payload.status || '';
   const progress = normalizeProgress(payload.progress);
-  const memo = payload.memo;
+  const memo = payload.memo || '';
 
   return `
     <div class="task-detail-card">
@@ -258,39 +258,21 @@ function renderTaskDetail(payload) {
         </div>
       </div>
 
-            <div class="task-detail-parent-line">
+      <div class="task-detail-parent-line">
         <span>親タスク</span>
         <strong>${renderDetailValue(parentTask)}</strong>
       </div>
 
       <div class="task-detail-mini-grid">
-        <div>
-          <span>絶対！期日</span>
-          <strong>${renderDetailValue(dueDate)}</strong>
-        </div>
-        <div>
-          <span>目標期日</span>
-          <strong>${renderDetailValue(targetDate)}</strong>
-        </div>
-        <div>
-          <span>着手予定時期</span>
-          <strong>${renderDetailValue(startPlan)}</strong>
-        </div>
-        <div>
-          <span>作業日数残</span>
-          <strong>${renderDetailValue(daysUntilDue)}</strong>
-        </div>
+        <div><span>絶対！期日</span><strong>${renderDetailValue(formatDetailDate(dueDate))}</strong></div>
+        <div><span>目標期日</span><strong>${renderDetailValue(formatDetailDate(targetDate))}</strong></div>
+        <div><span>着手予定時期</span><strong>${renderDetailValue(startPlan)}</strong></div>
+        <div><span>作業日数残</span><strong>${renderDetailValue(daysUntilDue)}</strong></div>
       </div>
 
       <div class="task-detail-status-grid">
-        <div>
-          <span>進捗状態</span>
-          <strong>${renderDetailValue(status)}</strong>
-        </div>
-        <div>
-          <span>進捗%</span>
-          <strong>${progress}%</strong>
-        </div>
+        <div><span>進捗状態</span><strong>${renderDetailValue(status)}</strong></div>
+        <div><span>進捗%</span><strong>${progress}%</strong></div>
       </div>
 
       <div class="task-detail-progress">
@@ -300,6 +282,12 @@ function renderTaskDetail(payload) {
       <div class="task-detail-memo">
         <span>進捗詳細・メモ</span>
         <p>${renderDetailValue(memo)}</p>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-primary" type="button" data-task-edit='${escapeHtml(JSON.stringify(payload))}'>
+          編集する
+        </button>
       </div>
     </div>
   `;
@@ -311,8 +299,143 @@ function bindRowModals() {
     button.addEventListener('click', () => {
       const payload = JSON.parse(button.dataset.payload);
       openModal(renderTaskDetail(payload));
+      bindTaskDetailActions(payload);
     });
   });
+}
+
+function bindTaskDetailActions(task) {
+  const editButton = document.querySelector('[data-task-edit]');
+  if (editButton) {
+    editButton.addEventListener('click', () => {
+      const payload = JSON.parse(editButton.dataset.taskEdit);
+      openModal(renderTaskEditForm(payload));
+      bindTaskEditForm(payload);
+    });
+  }
+}
+
+function bindTaskEditForm(originalTask) {
+  const form = document.getElementById('task-edit-form');
+  if (!form) return;
+
+  const cancelButton = document.querySelector('[data-task-edit-cancel]');
+  if (cancelButton) {
+    cancelButton.addEventListener('click', () => {
+      openModal(renderTaskDetail(originalTask));
+      bindTaskDetailActions(originalTask);
+    });
+  }
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    const formData = new FormData(form);
+
+    const progress = String(formData.get('progress') || '').trim();
+    if (progress !== '') {
+      const n = Number(progress);
+      if (!Number.isFinite(n) || n < 0 || n > 100) {
+        alert('進捗(%)は0〜100の半角数字で入力してください。');
+        return;
+      }
+    }
+
+    const data = {
+      no: formData.get('no'),
+      taskName: formData.get('taskName'),
+      assignee: formData.get('assignee'),
+      dueDate: formData.get('dueDate'),
+      targetDate: formData.get('targetDate'),
+      startPlan: formData.get('startPlan'),
+      status: formData.get('status'),
+      progress,
+      memo: formData.get('memo'),
+    };
+
+    try {
+      setLoading(true);
+      await apiGet('updateTask', {
+        data: JSON.stringify(data),
+      });
+
+      closeModal();
+      await loadTasks();
+    } catch (err) {
+      alert(err.message || 'タスクの保存に失敗しました。');
+    } finally {
+      setLoading(false);
+    }
+  });
+}
+
+function renderTaskEditForm(task) {
+  const no = task.no || '';
+  const statusOptions = ['まだ💦', '順調！✨', '行き詰ってる…。', '完了！'];
+
+  return `
+    <form class="form-stack" id="task-edit-form">
+      <input type="hidden" name="no" value="${escapeHtml(no)}">
+
+      <label>
+        タイトル
+        <input name="taskName" value="${escapeHtml(task.taskName || '')}">
+      </label>
+
+      <label>
+        担当者
+        <input name="assignee" value="${escapeHtml(task.assignee || '')}">
+      </label>
+
+      <label>
+        絶対！期日
+        <input type="date" name="dueDate" value="${escapeHtml(task.dueDate || '')}">
+      </label>
+
+      <label>
+        目標期日
+        <input type="date" name="targetDate" value="${escapeHtml(task.targetDate || '')}">
+      </label>
+
+      <label>
+        着手予定時期
+        <input name="startPlan" value="${escapeHtml(task.startPlan || '')}" placeholder="例：4月前半">
+      </label>
+
+      <label>
+        進捗状態
+        <select name="status">
+          <option value="">未設定</option>
+          ${statusOptions.map(status => `
+            <option value="${escapeHtml(status)}" ${task.status === status ? 'selected' : ''}>
+              ${escapeHtml(status)}
+            </option>
+          `).join('')}
+        </select>
+      </label>
+
+      <label>
+        進捗(%)
+        <input name="progress" inputmode="numeric" pattern="[0-9]*" value="${escapeHtml(normalizeProgress(task.progress))}">
+      </label>
+
+      <label>
+        進捗詳細・メモ
+        <textarea name="memo">${escapeHtml(task.memo || '')}</textarea>
+      </label>
+
+      <p class="meta">※親タスク変更は次フェーズで実装します。</p>
+
+      <div class="modal-actions">
+        <button class="btn-secondary" type="button" data-task-edit-cancel='${escapeHtml(JSON.stringify(task))}'>
+          戻る
+        </button>
+        <button class="btn-primary" type="submit">
+          保存する
+        </button>
+      </div>
+    </form>
+  `;
 }
 
 
