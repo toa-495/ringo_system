@@ -389,7 +389,9 @@ function bindTaskEditForm(originalTask, options = {}, parentOptions = []) {
       });
 
       closeModal();
-      await loadTasks();
+
+state.allTasksForWbs = [];
+await loadTasks();
     } catch (err) {
       alert(err.message || 'タスクの保存に失敗しました。');
     } finally {
