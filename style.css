@@ -409,7 +409,9 @@ button {
 }
 
 .loading {
-  top: 14px;
+  top: auto;
+  bottom: 16px;
+  pointer-events: none;
   background: #2c2020;
   color: #fff;
 }
