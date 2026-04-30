@@ -1367,3 +1367,11 @@ button {
   min-width: calc(var(--calendar-cell-width) * 7) !important;
   width: calc(var(--calendar-cell-width) * 7) !important;
 }
+
+.calendar-editable-event {
+  cursor: pointer;
+}
+
+.calendar-editable-event:active {
+  opacity: 0.72;
+}
