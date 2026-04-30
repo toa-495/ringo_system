@@ -1646,3 +1646,135 @@ button {
 .wbs-node-ancestor-only > .wbs-children {
   margin-top: 2px;
 }
+
+.task-detail-card {
+  display: grid;
+  gap: 14px;
+}
+
+.task-detail-main {
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.task-detail-no {
+  display: grid;
+  place-items: center;
+  padding: 10px 8px;
+  border-radius: 16px;
+  background: var(--soft-primary);
+  color: var(--primary-dark);
+}
+
+.task-detail-no span {
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.task-detail-no strong {
+  font-size: 1.2rem;
+  font-weight: 900;
+}
+
+.task-detail-title-block {
+  display: grid;
+  gap: 8px;
+}
+
+.task-detail-field {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #fffaf5;
+}
+
+.task-detail-title-field strong {
+  font-size: 1.05rem;
+  line-height: 1.35;
+}
+
+.task-detail-label,
+.task-detail-mini-grid span,
+.task-detail-status-grid span,
+.task-detail-memo span {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.task-detail-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.task-detail-mini-grid div,
+.task-detail-status-grid div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 8px 7px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: #fff;
+}
+
+.task-detail-mini-grid strong,
+.task-detail-status-grid strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.task-detail-status-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.detail-missing {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  min-width: 34px;
+  min-height: 28px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: #f1eee9;
+  color: #9b8b7d;
+  font-size: 1.05rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.task-detail-memo {
+  display: grid;
+  gap: 7px;
+  padding: 12px;
+  border-radius: 15px;
+  background: #fffaf5;
+  border: 1px solid var(--border);
+}
+
+.task-detail-memo p {
+  min-height: 48px;
+  margin: 0;
+  color: var(--text);
+  line-height: 1.6;
+}
+
+@media (max-width: 420px) {
+  .task-detail-main {
+    grid-template-columns: 58px 1fr;
+  }
+
+  .task-detail-mini-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
