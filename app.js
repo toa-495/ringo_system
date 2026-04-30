@@ -1400,6 +1400,8 @@ function renderCalendarGrid(data) {
               ${week.dateRow.map((dateObj, index) => `
                 <td
   class="${getCalendarDayClass(index)} ${dateObj?.isToday ? 'calendar-today' : ''} ${isPastCalendarDate(dateObj?.iso) ? 'calendar-past' : ''}"
+  data-calendar-month="${escapeHtml(dateObj?.month || '')}"
+  data-calendar-iso="${escapeHtml(dateObj?.iso || '')}"
 >
                   <div class="calendar-cell-inner calendar-date-inner">
                     ${escapeHtml(dateObj?.text || '')}
