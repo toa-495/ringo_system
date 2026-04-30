@@ -1352,6 +1352,8 @@ function bindCalendarSwitch(data) {
       content.innerHTML = mode === 'list'
         ? renderCalendarList(data)
         : renderCalendarGrid(data);
+      
+      bindCalendarEditEvents();
 
       if (mode === 'grid') {
   bindCalendarSizeControl();
