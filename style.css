@@ -1778,3 +1778,31 @@ button {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+.task-detail-parent-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: -4px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: #fffaf5;
+  border: 1px solid var(--border);
+}
+
+.task-detail-parent-line span {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 900;
+}
+
+.task-detail-parent-line strong {
+  min-width: 0;
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
