@@ -1347,3 +1347,17 @@ button {
 .calendar-event-inner {
   min-height: var(--calendar-event-height) !important;
 }
+
+.calendar-past-list {
+  background: rgba(0, 0, 0, 0.045) !important;
+  color: rgba(80, 80, 80, 0.5) !important;
+  opacity: 0.65;
+}
+
+.calendar-today-list {
+  opacity: 1 !important;
+}
+
+.calendar-grid-table {
+  --calendar-cell-width: 42px;
+}
