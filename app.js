@@ -7,6 +7,7 @@ const state = {
   taskStatusTab: 'incomplete',
   taskAssigneeFilter: '',
   taskFilterUsers: [],
+  allTasksForWbs: [],
 };
 
 const VIEW_TITLES = {
@@ -386,37 +387,95 @@ function getTaskParentId(task) {
   return id.split('-').slice(0, -1).join('-');
 }
 
-function markAssigneeFilterAncestorOnly(tasks) {
-  const safeTasks = tasks || [];
+function addWbsAncestorsForAssigneeFilter(tasks) {
   const selectedUser = String(state.taskAssigneeFilter || '').trim();
+  const selectedTasks = tasks || [];
 
+  // 全員表示のときは何もしない
   if (!selectedUser) {
-    return safeTasks.map(task => ({
+    return selectedTasks.map(task => ({
       ...task,
-      __assigneeAncestorOnly: false,
+      __assigneeBaseMatched: true,
+      __filterAncestorOnly: false,
     }));
   }
 
-  const directlyMatchedIds = new Set();
+  const allTasks = state.allTasksForWbs || [];
+  const selectedIds = new Set(
+    selectedTasks
+      .map(task => String(task.id || '').trim())
+      .filter(Boolean)
+  );
 
-  safeTasks.forEach(task => {
+  const allById = new Map();
+  allTasks.forEach(task => {
     const id = String(task.id || '').trim();
-    const assigneeText = String(task.assignee || '').trim();
+    if (id) allById.set(id, task);
+  });
 
+  const resultById = new Map();
+
+  // GASから返ってきたタスクは、全部「本来表示対象」なので普通表示
+  selectedTasks.forEach(task => {
+    const id = String(task.id || '').trim();
     if (!id) return;
 
-    if (selectedUser && assigneeText.includes(selectedUser)) {
-      directlyMatchedIds.add(id);
+    resultById.set(id, {
+      ...task,
+      __assigneeBaseMatched: true,
+      __filterAncestorOnly: false,
+    });
+  });
+
+  // ID空白タスクも普通表示として残す
+  const blankIdTasks = selectedTasks
+    .filter(task => !String(task.id || '').trim())
+    .map(task => ({
+      ...task,
+      __assigneeBaseMatched: true,
+      __filterAncestorOnly: false,
+    }));
+
+  // selectedTasksの親を全体タスクからたどって補完する
+  selectedTasks.forEach(task => {
+    let parentId = getTaskParentId(task);
+
+    while (parentId) {
+      if (!resultById.has(parentId)) {
+        const parentTask = allById.get(parentId);
+
+        if (parentTask) {
+          resultById.set(parentId, {
+            ...parentTask,
+            __assigneeBaseMatched: false,
+            __filterAncestorOnly: true,
+          });
+        }
+      }
+
+      const currentParent = allById.get(parentId);
+      parentId = currentParent ? getTaskParentId(currentParent) : '';
     }
   });
 
-  return safeTasks.map(task => {
-    const id = String(task.id || '').trim();
+  const merged = [...resultById.values(), ...blankIdTasks];
 
-    return {
-      ...task,
-      __assigneeAncestorOnly: Boolean(id && !directlyMatchedIds.has(id)),
-    };
+  // 元の全体順に戻す。ID空白は最後
+  const orderMap = new Map();
+  allTasks.forEach((task, index) => {
+    const id = String(task.id || '').trim();
+    if (id) orderMap.set(id, index);
+  });
+
+  return merged.sort((a, b) => {
+    const aId = String(a.id || '').trim();
+    const bId = String(b.id || '').trim();
+
+    if (!aId && !bId) return 0;
+    if (!aId) return 1;
+    if (!bId) return -1;
+
+    return (orderMap.get(aId) ?? 999999) - (orderMap.get(bId) ?? 999999);
   });
 }
 
@@ -744,7 +803,7 @@ function renderTaskTree(nodes) {
     const taskJson = escapeHtml(JSON.stringify(task));
     const dueText = escapeHtml(formatDaysUntilDue(task.daysUntilDue));
 
-    const isAncestorOnly = task.__filterAncestorOnly === true || task.__assigneeAncestorOnly === true;
+    const isAncestorOnly = task.__filterAncestorOnly === true;
 
     if (isAncestorOnly) {
       return `
@@ -802,12 +861,16 @@ async function loadTasks() {
       state.taskFilterUsers = await apiGet('getTaskFilterUsers');
     }
 
-    const tasks = state.taskAssigneeFilter
-      ? await apiGet('getTasksByAssignee', { name: state.taskAssigneeFilter })
-      : await apiGet('getTasks');
+    if (!state.allTasksForWbs || state.allTasksForWbs.length === 0) {
+  state.allTasksForWbs = await apiGet('getTasks');
+}
 
-       const safeTasks = markAssigneeFilterAncestorOnly(tasks || []);
-    const filteredTasks = filterTasksByStatusKeepAncestors(safeTasks, state.taskStatusTab || 'incomplete');
+const tasks = state.taskAssigneeFilter
+  ? await apiGet('getTasksByAssignee', { name: state.taskAssigneeFilter })
+  : state.allTasksForWbs;
+
+const safeTasks = addWbsAncestorsForAssigneeFilter(tasks || []);
+const filteredTasks = filterTasksByStatusKeepAncestors(safeTasks, state.taskStatusTab || 'incomplete');
     const tree = buildTaskTree(filteredTasks);
 
     const activeTab = TASK_STATUS_TABS.find((tab) => tab.key === (state.taskStatusTab || 'incomplete')) || TASK_STATUS_TABS[0];
