@@ -1619,3 +1619,30 @@ button {
     width: var(--progress, 0%);
   }
 }
+
+.wbs-node-ancestor-only {
+  margin-top: 4px;
+}
+
+.wbs-row-ancestor-only {
+  min-height: 30px;
+  padding-top: 3px;
+  padding-bottom: 3px;
+  opacity: 0.72;
+}
+
+.wbs-ancestor-title {
+  flex: 1;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wbs-node-ancestor-only > .wbs-children {
+  margin-top: 2px;
+}
