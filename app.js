@@ -1863,7 +1863,7 @@ async function loadMilestones() {
         <div class="section-head">
           <div>
             <p class="eyebrow">Milestones</p>
-            <h3>マイルストーン・ガント</h3>
+            <h3>マイルストーン・ガントチャート</h3>
             <p class="meta">横スクロールで全体を確認できます。</p>
           </div>
         </div>
@@ -2096,7 +2096,7 @@ function renderMilestoneGrid(data) {
             ${row.map((cell, colIndex) => {
               const sheetRow = rowIndex + 2;
               const sheetCol = colIndex + 3;
-              const editable = sheetRow === 3 || sheetRow === 4;
+              const editable = sheetRow === 3;
 
               return `
                 <td
@@ -2156,7 +2156,7 @@ function renderCombinedMilestoneGantt(milestoneData, ganttData) {
             ${row.map((cell, colIndex) => {
               const sheetRow = rowIndex + 2;
               const sheetCol = colIndex + 3;
-              const editable = sheetRow === 3 || sheetRow === 4;
+              const editable = sheetRow === 3;
 
               return `
                 <td
