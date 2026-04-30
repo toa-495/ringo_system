@@ -1315,6 +1315,11 @@ async function loadCalendar() {
   ${escapeHtml(getCalendarCurrentMonth(data, 'grid'))}
 </div>
 
+<div class="calendar-size-control">
+  <span>表示サイズ</span>
+  <input id="calendar-size-range" type="range" min="72" max="150" value="96">
+</div>
+
 <div id="calendar-content">
   ${renderCalendarGrid(data)}
 </div>
@@ -1323,6 +1328,7 @@ async function loadCalendar() {
 
     bindCalendarSwitch(data);
     scrollCalendarToToday();
+    bindCalendarSizeControl();
   } catch (err) {
     console.error(err);
     setError(err.message || 'カレンダーの読み込みに失敗しました。');
@@ -1380,7 +1386,7 @@ function renderCalendarGrid(data) {
             <tr class="calendar-date-row">
               ${week.dateRow.map((dateObj, index) => `
                 <td
-                  class="${getCalendarDayClass(index)} ${dateObj?.isToday ? 'calendar-today' : ''}"
+                  class="${getCalendarDayClass(index)} ${dateObj?.isToday ? 'calendar-today' : ''} ${isPastCalendarDate(dateObj?.iso) ? 'calendar-past' : ''}"
                   data-calendar-month="${escapeHtml(dateObj?.month || '')}"
                   data-calendar-iso="${escapeHtml(dateObj?.iso || '')}"
                 >
@@ -1394,7 +1400,7 @@ function renderCalendarGrid(data) {
               ${week.eventRow.map((text, index) => {
                 const dateObj = week.dateRow[index] || {};
                 return `
-                  <td class="${getCalendarDayClass(index)} ${dateObj?.isToday ? 'calendar-today' : ''}">
+                  <td class="${getCalendarDayClass(index)} ${dateObj?.isToday ? 'calendar-today' : ''} ${isPastCalendarDate(dateObj?.iso) ? 'calendar-past' : ''}">
                     <div class="calendar-cell-inner calendar-event-inner">
                       ${escapeHtml(text || '')}
                     </div>
@@ -1519,7 +1525,40 @@ function scrollCalendarToToday() {
 
   setTimeout(() => {
     area.scrollTop = Math.max(todayCell.offsetTop - 8, 0);
-  }, 100);
+
+    if (todayCell.offsetLeft !== undefined) {
+      area.scrollLeft = Math.max(todayCell.offsetLeft - 24, 0);
+    }
+  }, 120);
+}
+
+function isPastCalendarDate(iso) {
+  if (!iso) return false;
+
+  const today = new Date();
+  const todayIso = [
+    today.getFullYear(),
+    String(today.getMonth() + 1).padStart(2, '0'),
+    String(today.getDate()).padStart(2, '0'),
+  ].join('-');
+
+  return iso < todayIso;
+}
+
+function bindCalendarSizeControl() {
+  const range = document.getElementById('calendar-size-range');
+  const table = document.querySelector('.calendar-grid-table');
+
+  if (!range || !table) return;
+
+  const applySize = () => {
+    const size = Number(range.value || 96);
+    table.style.setProperty('--calendar-cell-width', `${size}px`);
+    table.style.setProperty('--calendar-event-height', `${Math.round(size * 0.95)}px`);
+  };
+
+  range.addEventListener('input', applySize);
+  applySize();
 }
 
 setupHomeEvents();
