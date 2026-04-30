@@ -1,9 +1,10 @@
 const state = {
   currentView: 'home',
-  dueDays: window.APP_CONFIG.DEFAULT_DUE_DAYS || 7,
+  currentDays: 7,
   lineShareText: '',
   questionStatus: 'unresolved',
   questionOptions: { owners: [], dues: [] },
+  taskStatusTab: 'incomplete',
 };
 
 const VIEW_TITLES = {
@@ -191,19 +192,21 @@ function renderTaskDetail(payload) {
   const items = [
     ['No.', payload.no],
     ['タイトル', payload.title || payload.taskName],
-    ['親タスク', payload.parentTask],
     ['担当者', payload.assignee || '未定'],
+    ['親タスク', getParentTaskLabel(payload)],
     ['絶対！期日', payload.dueDate || '期限なし'],
     ['目標期日', payload.targetDate],
     ['着手予定時期', payload.startPlan],
+    ['作業日数残', formatDaysUntilDue(payload.daysUntilDue) || '未計算'],
     ['進捗状態', payload.status],
-    ['進捗％', payload.progress],
+    ['進捗％', `${normalizeProgress(payload.progress)}%`],
     ['進捗詳細・メモ', payload.memo],
   ].filter(([, value]) => value !== undefined && value !== null && value !== '');
 
   return `
     <p class="eyebrow">タスク詳細</p>
     <h3>${escapeHtml(taskTitle)}</h3>
+    <div class="task-detail-progress">${renderProgressBar(payload.progress)}</div>
     <dl class="detail-list">
       ${items.map(([key, value]) => `
         <div>
@@ -342,6 +345,162 @@ function formatDaysUntilDue(value) {
   return `あと${n}日`;
 }
 
+const TASK_STATUS_TABS = [
+  { key: 'incomplete', label: '未完了' },
+  { key: 'done', label: '完了！' },
+  { key: 'todo', label: 'まだ💦' },
+  { key: 'good', label: '順調！✨' },
+  { key: 'stuck', label: '行き詰ってる…。' },
+  { key: 'other', label: 'その他' },
+  { key: 'all', label: '全タスク' },
+];
+
+function normalizeTaskStatus(status) {
+  return String(status || '').trim();
+}
+
+function getTaskStatusKey(task) {
+  const status = normalizeTaskStatus(task?.status);
+  if (status === '完了！' || status === '完了' || status === '済' || status === '完了済み') return 'done';
+  if (status === 'まだ💦') return 'todo';
+  if (status === '順調！✨') return 'good';
+  if (status === '行き詰ってる…。' || status === '行き詰ってる…' || status === '行き詰まってる…。') return 'stuck';
+  if (!status) return 'other';
+  return 'other';
+}
+
+function filterTasksByStatus(tasks, tabKey) {
+  const list = tasks || [];
+  if (tabKey === 'all') return list;
+  if (tabKey === 'incomplete') return list.filter((task) => getTaskStatusKey(task) !== 'done');
+  return list.filter((task) => getTaskStatusKey(task) === tabKey);
+}
+
+function normalizeProgress(value) {
+  const raw = String(value ?? '').replace('%', '').trim();
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(100, n));
+}
+
+function renderProgressBar(progress) {
+  const percent = normalizeProgress(progress);
+  return `
+    <div class="task-progress" aria-label="進捗 ${percent}%">
+      <div class="task-progress-track">
+        <div class="task-progress-fill" style="--progress:${percent}%"></div>
+      </div>
+      <span class="task-progress-label">${percent}%</span>
+    </div>
+  `;
+}
+
+function renderTaskStatusTabs(tasks) {
+  const counts = TASK_STATUS_TABS.reduce((acc, tab) => {
+    acc[tab.key] = filterTasksByStatus(tasks, tab.key).length;
+    return acc;
+  }, {});
+
+  return `
+    <div class="task-status-tabs" role="tablist" aria-label="タスク状態フィルター">
+      ${TASK_STATUS_TABS.map((tab) => `
+        <button class="task-status-tab ${state.taskStatusTab === tab.key ? 'active' : ''}" type="button" data-task-tab="${escapeHtml(tab.key)}">
+          <span>${escapeHtml(tab.label)}</span>
+          <strong>${counts[tab.key] ?? 0}</strong>
+        </button>
+      `).join('')}
+    </div>
+  `;
+}
+
+function bindTaskStatusTabs(tasks) {
+  document.querySelectorAll('[data-task-tab]').forEach((button) => {
+    button.addEventListener('click', () => {
+      state.taskStatusTab = button.dataset.taskTab || 'incomplete';
+      renderTasksScreen(tasks || []);
+    });
+  });
+}
+
+function getParentTaskLabel(task) {
+  const parent = String(task?.parentTask || '').trim();
+  if (parent) return parent;
+
+  const parentId = getTaskParentId(task);
+  if (!parentId) return '親タスク未定';
+
+  return parentId;
+}
+
+function renderTaskCard(task) {
+  const title = escapeHtml(task.taskName || task.title || '無題のタスク');
+  const assignee = escapeHtml(task.assignee || '未定');
+  const parentTask = escapeHtml(getParentTaskLabel(task));
+  const dueDate = escapeHtml(task.dueDate || '期限なし');
+  const targetDate = escapeHtml(task.targetDate || '未設定');
+  const startPlan = escapeHtml(task.startPlan || '未設定');
+  const daysUntilDue = escapeHtml(formatDaysUntilDue(task.daysUntilDue) || '未計算');
+  const status = escapeHtml(task.status || '未設定');
+  const progress = normalizeProgress(task.progress);
+  const memo = String(task.memo || '').trim();
+  const taskJson = escapeHtml(JSON.stringify(task));
+
+  return `
+    <button class="task-card" type="button" data-modal="task" data-payload='${taskJson}'>
+      <div class="task-card-head">
+        <div class="task-card-title-wrap">
+          <span class="task-no">No.${escapeHtml(task.no || '-')}</span>
+          <strong class="task-card-title">${title}</strong>
+        </div>
+        <span class="task-status-pill">${status}</span>
+      </div>
+
+      <div class="task-card-meta-grid">
+        <div><dt>担当者</dt><dd>${assignee}</dd></div>
+        <div><dt>親タスク</dt><dd>${parentTask}</dd></div>
+        <div><dt>絶対！期日</dt><dd>${dueDate}</dd></div>
+        <div><dt>目標期日</dt><dd>${targetDate}</dd></div>
+        <div><dt>着手予定時期</dt><dd>${startPlan}</dd></div>
+        <div><dt>作業日数残</dt><dd>${daysUntilDue}</dd></div>
+      </div>
+
+      <div class="task-card-progress-row">
+        <span>進捗バー</span>
+        ${renderProgressBar(progress)}
+      </div>
+
+      ${memo ? `<p class="task-card-memo">${escapeHtml(memo)}</p>` : ''}
+    </button>
+  `;
+}
+
+function renderTasksScreen(tasks) {
+  const safeTasks = tasks || [];
+  const filteredTasks = filterTasksByStatus(safeTasks, state.taskStatusTab);
+  const activeTab = TASK_STATUS_TABS.find((tab) => tab.key === state.taskStatusTab) || TASK_STATUS_TABS[0];
+
+  el.views.tasks.innerHTML = `
+    <section class="card task-manage-card">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Task Manage</p>
+          <h3>タスク関連</h3>
+          <p class="meta">${escapeHtml(activeTab.label)}：${filteredTasks.length}件 / 全${safeTasks.length}件</p>
+        </div>
+      </div>
+
+      ${renderTaskStatusTabs(safeTasks)}
+
+      <div id="task-card-list" class="task-card-list">
+        ${filteredTasks.length ? filteredTasks.map(renderTaskCard).join('') : '<p class="meta">この分類のタスクはありません。</p>'}
+      </div>
+    </section>
+  `;
+
+  bindTaskStatusTabs(safeTasks);
+  bindRowModals();
+}
+
 function renderTaskTree(nodes) {
   if (!nodes || nodes.length === 0) return '<p class="meta">タスクはありません。</p>';
 
@@ -387,21 +546,30 @@ function bindWbsToggles() {
 async function loadTasks() {
   setLoading(true);
   setError('');
+
   try {
     const tasks = await apiGet('getTasks');
     const tree = buildTaskTree(tasks || []);
+
     el.views.tasks.innerHTML = `
-      <section class="card">
+      <section class="card task-manage-card">
         <div class="section-head">
           <div>
-            <p class="eyebrow">WBS Tasks</p>
+            <p class="eyebrow">Task Manage</p>
             <h3>タスク関連</h3>
-            <p class="meta">親タスクの横のタブで、子タスクを開閉できます。</p>
+            <p class="meta">状態タブで絞り込み、親タスクの横のタブで子タスクを開閉できます。</p>
           </div>
         </div>
-        <div id="task-wbs-list" class="wbs-list">${renderTaskTree(tree)}</div>
+
+        ${renderTaskStatusTabs(tasks || [])}
+
+        <div id="task-wbs-list" class="wbs-list">
+          ${renderTaskTree(tree)}
+        </div>
       </section>
     `;
+
+    bindTaskStatusTabs(tasks || []);
     bindWbsToggles();
     bindRowModals();
   } catch (err) {
