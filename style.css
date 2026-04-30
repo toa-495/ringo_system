@@ -1296,3 +1296,54 @@ button {
   background: rgba(255, 213, 79, 0.22) !important;
   border-color: rgba(255, 193, 7, 0.75) !important;
 }
+
+/* 過去日を薄くグレーアウト */
+.calendar-grid-table td.calendar-past {
+  background: rgba(0, 0, 0, 0.045) !important;
+  color: rgba(80, 80, 80, 0.45) !important;
+}
+
+.calendar-grid-table td.calendar-past .calendar-cell-inner {
+  opacity: 0.55;
+}
+
+/* 今日は過去グレーより優先 */
+.calendar-grid-table td.calendar-today {
+  background: rgba(255, 213, 79, 0.28) !important;
+  color: #111 !important;
+  opacity: 1 !important;
+}
+
+/* カレンダーサイズ調整 */
+.calendar-size-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0 12px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.calendar-size-control input {
+  flex: 1;
+}
+
+.calendar-grid-table {
+  --calendar-cell-width: 96px;
+  --calendar-event-height: 92px;
+}
+
+.calendar-grid-table th,
+.calendar-grid-table td {
+  width: var(--calendar-cell-width) !important;
+  min-width: var(--calendar-cell-width) !important;
+}
+
+.calendar-event-row td {
+  height: var(--calendar-event-height) !important;
+  min-height: var(--calendar-event-height) !important;
+}
+
+.calendar-event-inner {
+  min-height: var(--calendar-event-height) !important;
+}
