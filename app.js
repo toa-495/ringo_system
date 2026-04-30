@@ -186,35 +186,118 @@ function renderQuestionRows(questions) {
   }).join('');
 }
 
+function isBlankValue(value) {
+  return value === undefined || value === null || String(value).trim() === '';
+}
+
+function renderMissingValue() {
+  return '<span class="detail-missing">未</span>';
+}
+
+function renderDetailValue(value) {
+  if (isBlankValue(value)) return renderMissingValue();
+  return escapeHtml(value);
+}
+
+function formatDetailDate(value) {
+  if (isBlankValue(value)) return '';
+
+  const text = String(value).trim();
+
+  // yyyy-mm-dd / yyyy/mm/dd 対応
+  const match = text.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (match) {
+    return `${Number(match[2])}月${Number(match[3])}日`;
+  }
+
+  // すでに 〇月〇日 の場合はそのまま
+  if (/\d{1,2}月\d{1,2}日/.test(text)) return text;
+
+  const date = new Date(text);
+  if (!Number.isNaN(date.getTime())) {
+    return `${date.getMonth() + 1}月${date.getDate()}日`;
+  }
+
+  return text;
+}
 
 function renderTaskDetail(payload) {
-  const taskTitle = payload.title || payload.taskName || '詳細';
-  const items = [
-    ['No.', payload.no],
-    ['タイトル', payload.title || payload.taskName],
-    ['担当者', payload.assignee || '未定'],
-    ['親タスク', getParentTaskLabel(payload)],
-    ['絶対！期日', payload.dueDate || '期限なし'],
-    ['目標期日', payload.targetDate],
-    ['着手予定時期', payload.startPlan],
-    ['作業日数残', formatDaysUntilDue(payload.daysUntilDue) || '未計算'],
-    ['進捗状態', payload.status],
-    ['進捗％', `${normalizeProgress(payload.progress)}%`],
-    ['進捗詳細・メモ', payload.memo],
-  ].filter(([, value]) => value !== undefined && value !== null && value !== '');
+  const no = payload.no || '-';
+  const title = payload.title || payload.taskName;
+  const assignee = payload.assignee;
+  const parentTask = getParentTaskLabel(payload);
+  const dueDate = formatDetailDate(payload.dueDate);
+  const targetDate = formatDetailDate(payload.targetDate);
+  const startPlan = payload.startPlan;
+  const daysUntilDue = formatDaysUntilDue(payload.daysUntilDue);
+  const status = payload.status;
+  const progress = normalizeProgress(payload.progress);
+  const memo = payload.memo;
 
   return `
-    <p class="eyebrow">タスク詳細</p>
-    <h3>${escapeHtml(taskTitle)}</h3>
-    <div class="task-detail-progress">${renderProgressBar(payload.progress)}</div>
-    <dl class="detail-list">
-      ${items.map(([key, value]) => `
-        <div>
-          <dt>${escapeHtml(key)}</dt>
-          <dd>${escapeHtml(value)}</dd>
+    <div class="task-detail-card">
+      <div class="task-detail-main">
+        <div class="task-detail-no">
+          <span>No.</span>
+          <strong>${escapeHtml(no)}</strong>
         </div>
-      `).join('')}
-    </dl>
+
+        <div class="task-detail-title-block">
+          <div class="task-detail-field task-detail-title-field">
+            <span class="task-detail-label">タイトル</span>
+            <strong>${renderDetailValue(title)}</strong>
+          </div>
+
+          <div class="task-detail-field">
+            <span class="task-detail-label">担当者</span>
+            <strong>${renderDetailValue(assignee)}</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="task-detail-mini-grid">
+        <div>
+          <span>親タスク</span>
+          <strong>${renderDetailValue(parentTask)}</strong>
+        </div>
+        <div>
+          <span>絶対！期日</span>
+          <strong>${renderDetailValue(dueDate)}</strong>
+        </div>
+        <div>
+          <span>目標期日</span>
+          <strong>${renderDetailValue(targetDate)}</strong>
+        </div>
+        <div>
+          <span>着手予定時期</span>
+          <strong>${renderDetailValue(startPlan)}</strong>
+        </div>
+        <div>
+          <span>作業日数残</span>
+          <strong>${renderDetailValue(daysUntilDue)}</strong>
+        </div>
+      </div>
+
+      <div class="task-detail-status-grid">
+        <div>
+          <span>進捗状態</span>
+          <strong>${renderDetailValue(status)}</strong>
+        </div>
+        <div>
+          <span>進捗%</span>
+          <strong>${progress}%</strong>
+        </div>
+      </div>
+
+      <div class="task-detail-progress">
+        ${renderProgressBar(progress)}
+      </div>
+
+      <div class="task-detail-memo">
+        <span>進捗詳細・メモ</span>
+        <p>${renderDetailValue(memo)}</p>
+      </div>
+    </div>
   `;
 }
 
