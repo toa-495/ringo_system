@@ -1317,7 +1317,7 @@ async function loadCalendar() {
 
 <div class="calendar-size-control">
   <span>表示サイズ</span>
-  <input id="calendar-size-range" type="range" min="72" max="150" value="96">
+  <input id="calendar-size-range" type="range" min="42" max="150" value="96">
 </div>
 
 <div id="calendar-content">
@@ -1346,6 +1346,7 @@ function bindCalendarSwitch(data) {
       const mode = btn.dataset.calendarMode;
       const content = document.getElementById('calendar-content');
       const monthFloat = document.getElementById('calendar-month-float');
+      const sizeControl = document.querySelector('.calendar-size-control');
 
       content.innerHTML = mode === 'list'
         ? renderCalendarList(data)
@@ -1354,6 +1355,10 @@ function bindCalendarSwitch(data) {
       if (monthFloat) {
         monthFloat.textContent = getCalendarCurrentMonth(data, mode);
       }
+
+      if (sizeControl) {
+  sizeControl.style.display = mode === 'list' ? 'none' : 'flex';
+}
 
       bindCalendarScrollMonth(data, mode);
       scrollCalendarToToday();
@@ -1429,7 +1434,7 @@ function renderCalendarList(data) {
 
         return `
           <div
-            class="data-row calendar-list-row ${item.isToday ? 'calendar-today-list' : ''}"
+            class="data-row calendar-list-row ${item.isToday ? 'calendar-today-list' : ''} ${isPastCalendarDate(item.iso) ? 'calendar-past-list' : ''}"
             data-calendar-month="${escapeHtml(item.month || extractMonthFromDateText(item.date))}"
             data-calendar-iso="${escapeHtml(item.iso || '')}"
           >
@@ -1554,7 +1559,7 @@ function bindCalendarSizeControl() {
   const applySize = () => {
     const size = Number(range.value || 96);
     table.style.setProperty('--calendar-cell-width', `${size}px`);
-    table.style.setProperty('--calendar-event-height', `${Math.round(size * 0.95)}px`);
+    table.style.setProperty('--calendar-event-height', `${Math.max(54, Math.round(size * 0.95))}px`);
   };
 
   range.addEventListener('input', applySize);
