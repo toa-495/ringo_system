@@ -307,15 +307,25 @@ function bindRowModals() {
 function bindTaskDetailActions(task) {
   const editButton = document.querySelector('[data-task-edit]');
   if (editButton) {
-    editButton.addEventListener('click', () => {
+    editButton.addEventListener('click', async () => {
       const payload = JSON.parse(editButton.dataset.taskEdit);
-      openModal(renderTaskEditForm(payload));
-      bindTaskEditForm(payload);
+
+      try {
+        setLoading(true);
+        const options = await apiGet('getTaskEditOptions');
+
+        openModal(renderTaskEditForm(payload, options));
+        bindTaskEditForm(payload, options);
+      } catch (err) {
+        alert(err.message || '編集用の選択肢取得に失敗しました。');
+      } finally {
+        setLoading(false);
+      }
     });
   }
 }
 
-function bindTaskEditForm(originalTask) {
+function bindTaskEditForm(originalTask, options = {}) {
   const form = document.getElementById('task-edit-form');
   if (!form) return;
 
@@ -369,9 +379,11 @@ function bindTaskEditForm(originalTask) {
   });
 }
 
-function renderTaskEditForm(task) {
+function renderTaskEditForm(task, options = {}) {
   const no = task.no || '';
   const statusOptions = ['まだ💦', '順調！✨', '行き詰ってる…。', '完了！'];
+  const assignees = options.assignees || [];
+  const startPlans = options.startPlans || [];
 
   return `
     <form class="form-stack" id="task-edit-form">
@@ -384,7 +396,14 @@ function renderTaskEditForm(task) {
 
       <label>
         担当者
-        <input name="assignee" value="${escapeHtml(task.assignee || '')}">
+        <select name="assignee">
+          <option value="">未設定</option>
+          ${assignees.map(name => `
+            <option value="${escapeHtml(name)}" ${task.assignee === name ? 'selected' : ''}>
+              ${escapeHtml(name)}
+            </option>
+          `).join('')}
+        </select>
       </label>
 
       <label>
@@ -399,7 +418,14 @@ function renderTaskEditForm(task) {
 
       <label>
         着手予定時期
-        <input name="startPlan" value="${escapeHtml(task.startPlan || '')}" placeholder="例：4月前半">
+        <select name="startPlan">
+          <option value="">未設定</option>
+          ${startPlans.map(plan => `
+            <option value="${escapeHtml(plan)}" ${task.startPlan === plan ? 'selected' : ''}>
+              ${escapeHtml(plan)}
+            </option>
+          `).join('')}
+        </select>
       </label>
 
       <label>
