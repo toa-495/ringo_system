@@ -285,10 +285,13 @@ function renderTaskDetail(payload) {
       </div>
 
       <div class="modal-actions">
-        <button class="btn-primary" type="button" data-task-edit='${escapeHtml(JSON.stringify(payload))}'>
-          編集する
-        </button>
-      </div>
+  <button class="btn-secondary" type="button" data-task-add-child='${escapeHtml(JSON.stringify(payload))}'>
+    傘下にタスク追加
+  </button>
+  <button class="btn-primary" type="button" data-task-edit='${escapeHtml(JSON.stringify(payload))}'>
+    編集する
+  </button>
+</div>
     </div>
   `;
 }
@@ -321,6 +324,14 @@ function bindTaskDetailActions(task) {
       } finally {
         setLoading(false);
       }
+    });
+  }
+
+  const childAddButton = document.querySelector('[data-task-add-child]');
+  if (childAddButton) {
+    childAddButton.addEventListener('click', async () => {
+      const payload = JSON.parse(childAddButton.dataset.taskAddChild);
+      await openTaskAddModal(payload);
     });
   }
 }
@@ -377,6 +388,277 @@ function bindTaskEditForm(originalTask, options = {}) {
       setLoading(false);
     }
   });
+}
+
+function bindTaskAddButton() {
+  const addButton = document.getElementById('task-add-btn');
+  if (!addButton) return;
+
+  addButton.addEventListener('click', async () => {
+    await openTaskAddModal();
+  });
+}
+
+async function openTaskAddModal(parentTask = null) {
+  try {
+    setLoading(true);
+
+    const [options, parentOptions] = await Promise.all([
+      apiGet('getTaskEditOptions'),
+      apiGet('getParentTaskOptions'),
+    ]);
+
+    openModal(renderTaskAddModal({
+      options,
+      parentOptions,
+      parentTask,
+    }));
+
+    bindTaskAddModalEvents({
+      options,
+      parentOptions,
+      parentTask,
+    });
+  } catch (err) {
+    alert(err.message || 'タスク追加画面の表示に失敗しました。');
+  } finally {
+    setLoading(false);
+  }
+}
+
+function renderTaskAddModal({ options = {}, parentOptions = [], parentTask = null }) {
+  const forcedParentLabel = parentTask
+    ? `${parentTask.no || ''}. ${parentTask.taskName || parentTask.title || ''}`.trim()
+    : '';
+
+  const forcedParentValue = parentTask
+    ? `${parentTask.no || ''}. ${parentTask.taskName || parentTask.title || ''}`.trim()
+    : '';
+
+  return `
+    <p class="eyebrow">Task Add</p>
+    <h3>${parentTask ? '傘下にタスク追加' : '新規タスク追加'}</h3>
+
+    <div class="task-add-tabs">
+      <button class="task-add-tab active" type="button" data-task-add-mode="single">単発追加</button>
+      <button class="task-add-tab" type="button" data-task-add-mode="bulk">複数追加</button>
+    </div>
+
+    <div id="task-add-single">
+      ${renderTaskAddSingleForm({ options, parentOptions, parentTask, forcedParentLabel, forcedParentValue })}
+    </div>
+
+    <div id="task-add-bulk" class="hidden">
+      ${renderTaskAddBulkForm({ parentOptions, parentTask, forcedParentLabel, forcedParentValue })}
+    </div>
+  `;
+}
+
+function renderParentSelect(parentOptions, selectedValue = '', disabled = false) {
+  return `
+    <select name="parentTask" ${disabled ? 'disabled' : ''}>
+      <option value="">親タスク未定</option>
+      ${(parentOptions || []).map(item => {
+        const value = item.label || '';
+        return `
+          <option value="${escapeHtml(value)}" ${value === selectedValue ? 'selected' : ''}>
+            ${escapeHtml(value)}
+          </option>
+        `;
+      }).join('')}
+    </select>
+  `;
+}
+
+function renderTaskAddSingleForm({ options = {}, parentOptions = [], parentTask = null, forcedParentValue = '' }) {
+  const statusOptions = ['まだ💦', '順調！✨', '行き詰ってる…。', '完了！'];
+  const assignees = options.assignees || [];
+  const startPlans = options.startPlans || [];
+
+  return `
+    <form class="form-stack" id="task-add-single-form">
+      <label>
+        タイトル
+        <input name="taskName" placeholder="タスク名を入力">
+      </label>
+
+      <label>
+        親タスク
+        ${renderParentSelect(parentOptions, forcedParentValue, !!parentTask)}
+        ${parentTask ? `<input type="hidden" name="parentTask" value="${escapeHtml(forcedParentValue)}">` : ''}
+      </label>
+
+      <label>
+        担当者
+        <select name="assignee">
+          <option value="">未設定</option>
+          ${assignees.map(name => `
+            <option value="${escapeHtml(name)}">${escapeHtml(name)}</option>
+          `).join('')}
+        </select>
+      </label>
+
+      <label>
+        絶対！期日
+        <input type="date" name="dueDate">
+      </label>
+
+      <label>
+        目標期日
+        <input type="date" name="targetDate">
+      </label>
+
+      <label>
+        着手予定時期
+        <select name="startPlan">
+          <option value="">未設定</option>
+          ${startPlans.map(plan => `
+            <option value="${escapeHtml(plan)}">${escapeHtml(plan)}</option>
+          `).join('')}
+        </select>
+      </label>
+
+      <label>
+        進捗状態
+        <select name="status">
+          <option value="">未設定</option>
+          ${statusOptions.map(status => `
+            <option value="${escapeHtml(status)}">${escapeHtml(status)}</option>
+          `).join('')}
+        </select>
+      </label>
+
+      <label>
+        進捗(%)
+        <input name="progress" inputmode="numeric" pattern="[0-9]*" placeholder="0〜100">
+      </label>
+
+      <label>
+        進捗詳細・メモ
+        <textarea name="memo"></textarea>
+      </label>
+
+      <div class="modal-actions">
+        <button class="btn-primary" type="submit">追加する</button>
+      </div>
+    </form>
+  `;
+}
+
+function renderTaskAddBulkForm({ parentOptions = [], parentTask = null, forcedParentValue = '' }) {
+  return `
+    <form class="form-stack" id="task-add-bulk-form">
+      <label>
+        親タスク
+        ${renderParentSelect(parentOptions, forcedParentValue, !!parentTask)}
+        ${parentTask ? `<input type="hidden" name="parentTask" value="${escapeHtml(forcedParentValue)}">` : ''}
+      </label>
+
+      <label>
+        タスク名
+        <textarea name="titles" placeholder="1行に1タスクずつ入力"></textarea>
+      </label>
+
+      <p class="meta">※複数追加では、タイトルと親タスクのみ登録します。</p>
+
+      <div class="modal-actions">
+        <button class="btn-primary" type="submit">まとめて追加する</button>
+      </div>
+    </form>
+  `;
+}
+
+function bindTaskAddModalEvents(context) {
+  document.querySelectorAll('[data-task-add-mode]').forEach(button => {
+    button.addEventListener('click', () => {
+      const mode = button.dataset.taskAddMode;
+
+      document.querySelectorAll('[data-task-add-mode]').forEach(btn => {
+        btn.classList.toggle('active', btn === button);
+      });
+
+      document.getElementById('task-add-single').classList.toggle('hidden', mode !== 'single');
+      document.getElementById('task-add-bulk').classList.toggle('hidden', mode !== 'bulk');
+    });
+  });
+
+  const singleForm = document.getElementById('task-add-single-form');
+  if (singleForm) {
+    singleForm.addEventListener('submit', async event => {
+      event.preventDefault();
+
+      const formData = new FormData(singleForm);
+      const progress = String(formData.get('progress') || '').trim();
+
+      if (progress !== '') {
+        const n = Number(progress);
+        if (!Number.isFinite(n) || n < 0 || n > 100) {
+          alert('進捗(%)は0〜100の半角数字で入力してください。');
+          return;
+        }
+      }
+
+      const data = {
+        taskName: formData.get('taskName'),
+        parentTask: formData.get('parentTask'),
+        assignee: formData.get('assignee'),
+        dueDate: formData.get('dueDate'),
+        targetDate: formData.get('targetDate'),
+        startPlan: formData.get('startPlan'),
+        status: formData.get('status'),
+        progress,
+        memo: formData.get('memo'),
+      };
+
+      if (!String(data.taskName || '').trim()) {
+        alert('タイトルを入力してください。');
+        return;
+      }
+
+      await submitTaskAdd('addTaskSingle', data);
+    });
+  }
+
+  const bulkForm = document.getElementById('task-add-bulk-form');
+  if (bulkForm) {
+    bulkForm.addEventListener('submit', async event => {
+      event.preventDefault();
+
+      const formData = new FormData(bulkForm);
+
+      const data = {
+        parentTask: formData.get('parentTask'),
+        titles: formData.get('titles'),
+      };
+
+      if (!String(data.titles || '').trim()) {
+        alert('追加するタスク名を入力してください。');
+        return;
+      }
+
+      await submitTaskAdd('addTaskBulk', data);
+    });
+  }
+}
+
+async function submitTaskAdd(action, data) {
+  try {
+    setLoading(true);
+
+    await apiGet(action, {
+      data: JSON.stringify(data),
+    });
+
+    closeModal();
+
+    // タスク一覧のキャッシュを更新
+    state.allTasksForWbs = [];
+    await loadTasks();
+  } catch (err) {
+    alert(err.message || 'タスク追加に失敗しました。');
+  } finally {
+    setLoading(false);
+  }
 }
 
 function renderTaskEditForm(task, options = {}) {
@@ -1053,8 +1335,10 @@ const filteredTasks = filterTasksByStatusKeepAncestors(safeTasks, state.taskStat
         ${renderTaskStatusTabs(safeTasks)}
 
         <div id="task-wbs-list" class="wbs-list">
-          ${renderTaskTree(tree)}
-        </div>
+  ${renderTaskTree(tree)}
+</div>
+
+<button id="task-add-btn" class="floating-add-btn" type="button">＋</button>
       </section>
     `;
 
@@ -1062,6 +1346,7 @@ const filteredTasks = filterTasksByStatusKeepAncestors(safeTasks, state.taskStat
     bindTaskStatusTabs();
     bindWbsToggles();
     bindRowModals();
+    bindTaskAddButton();
   } catch (err) {
     console.error(err);
     setError(err.message || 'タスクの読み込みに失敗しました。');
