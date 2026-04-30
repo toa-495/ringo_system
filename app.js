@@ -406,12 +406,17 @@ function normalizeTaskStatus(status) {
 }
 
 function getTaskStatusKey(task) {
-  const status = normalizeTaskStatus(task?.status);
-  if (status === '完了！' || status === '完了' || status === '済' || status === '完了済み') return 'done';
-  if (status === 'まだ💦') return 'todo';
-  if (status === '順調！✨') return 'good';
-  if (status === '行き詰ってる…。' || status === '行き詰ってる…' || status === '行き詰まってる…。') return 'stuck';
+  const status = normalizeTaskStatus(task?.status)
+    .replace(/\s/g, '')
+    .replace(/。/g, '')
+    .replace(/…/g, '');
+
   if (!status) return 'other';
+  if (status.includes('完了') || status.includes('済')) return 'done';
+  if (status.includes('まだ')) return 'todo';
+  if (status.includes('順調')) return 'good';
+  if (status.includes('行き詰')) return 'stuck';
+
   return 'other';
 }
 
