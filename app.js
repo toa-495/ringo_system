@@ -571,13 +571,14 @@ function renderTaskBulkRow(parentOptions = [], selectedParent = '', fixedParent 
   return `
     <div class="task-bulk-row" data-task-bulk-row>
       <input
+        class="task-bulk-title"
         name="taskName_${index}"
         placeholder="タスクタイトル"
       >
 
-      ${renderParentSelect(parentOptions, selectedParent, fixedParent, `parentTask_${index}`)}
+      ${renderParentSelect(parentOptions, selectedParent, fixedParent, `parentTask_${index}`).replace('<select ', '<select class="task-bulk-parent" ')}
 
-      ${fixedParent ? `<input type="hidden" name="parentTask_${index}" value="${escapeHtml(selectedParent)}">` : ''}
+      ${fixedParent ? `<input class="task-bulk-parent-hidden" type="hidden" name="parentTask_${index}" value="${escapeHtml(selectedParent)}">` : ''}
     </div>
   `;
 }
@@ -659,10 +660,10 @@ if (bulkForm) {
   bulkForm.addEventListener('submit', async event => {
     event.preventDefault();
 
-    const rows = [...bulkForm.querySelectorAll('[data-task-bulk-row]')].map((row, index) => {
-  const taskName = row.querySelector(`input[name="taskName_${index}"]`)?.value || '';
-  const parentSelect = row.querySelector(`select[name="parentTask_${index}"]`);
-  const parentHidden = row.querySelector(`input[name="parentTask_${index}"]`);
+    const rows = [...bulkForm.querySelectorAll('[data-task-bulk-row]')].map(row => {
+  const taskName = row.querySelector('.task-bulk-title')?.value || '';
+  const parentSelect = row.querySelector('.task-bulk-parent');
+  const parentHidden = row.querySelector('.task-bulk-parent-hidden');
 
   return {
     taskName: taskName.trim(),
