@@ -1361,3 +1361,9 @@ button {
 .calendar-grid-table {
   --calendar-cell-width: 42px;
 }
+
+/* カレンダー最小サイズ時に1週間を画面内へ収める */
+.calendar-grid-table {
+  min-width: calc(var(--calendar-cell-width) * 7) !important;
+  width: calc(var(--calendar-cell-width) * 7) !important;
+}
