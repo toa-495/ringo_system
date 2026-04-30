@@ -315,10 +315,17 @@ function bindTaskDetailActions(task) {
 
       try {
         setLoading(true);
-        const options = await apiGet('getTaskEditOptions');
+        const [options, parentOptionsRaw] = await Promise.all([
+  apiGet('getTaskEditOptions'),
+  apiGet('getParentTaskOptions'),
+]);
 
-        openModal(renderTaskEditForm(payload, options));
-        bindTaskEditForm(payload, options);
+const parentOptions = parentOptionsRaw.filter(item => {
+  return String(item.no) !== String(payload.no);
+});
+
+openModal(renderTaskEditForm(payload, options, parentOptions));
+bindTaskEditForm(payload, options, parentOptions);
       } catch (err) {
         alert(err.message || '編集用の選択肢取得に失敗しました。');
       } finally {
@@ -336,7 +343,7 @@ function bindTaskDetailActions(task) {
   }
 }
 
-function bindTaskEditForm(originalTask, options = {}) {
+function bindTaskEditForm(originalTask, options = {}, parentOptions = []) {
   const form = document.getElementById('task-edit-form');
   if (!form) return;
 
@@ -365,6 +372,7 @@ function bindTaskEditForm(originalTask, options = {}) {
     const data = {
       no: formData.get('no'),
       taskName: formData.get('taskName'),
+      parentTask: formData.get('parentTask'),
       assignee: formData.get('assignee'),
       dueDate: formData.get('dueDate'),
       targetDate: formData.get('targetDate'),
@@ -701,7 +709,7 @@ async function submitTaskAdd(action, data) {
   }
 }
 
-function renderTaskEditForm(task, options = {}) {
+function renderTaskEditForm(task, options = {}, parentOptions = []) {
   const no = task.no || '';
   const statusOptions = ['まだ💦', '順調！✨', '行き詰ってる…。', '完了！'];
   const assignees = options.assignees || [];
@@ -715,6 +723,11 @@ function renderTaskEditForm(task, options = {}) {
         タイトル
         <input name="taskName" value="${escapeHtml(task.taskName || '')}">
       </label>
+
+      <label>
+  親タスク
+  ${renderParentSelect(parentOptions, task.parentTask || '')}
+</label>
 
       <label>
         担当者
@@ -771,8 +784,6 @@ function renderTaskEditForm(task, options = {}) {
         進捗詳細・メモ
         <textarea name="memo">${escapeHtml(task.memo || '')}</textarea>
       </label>
-
-      <p class="meta">※親タスク変更は次フェーズで実装します。</p>
 
       <div class="modal-actions">
         <button class="btn-secondary" type="button" data-task-edit-cancel='${escapeHtml(JSON.stringify(task))}'>
