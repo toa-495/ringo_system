@@ -546,25 +546,39 @@ function renderTaskAddSingleForm({ options = {}, parentOptions = [], parentTask 
 }
 
 function renderTaskAddBulkForm({ parentOptions = [], parentTask = null, forcedParentValue = '' }) {
+  const rows = Array.from({ length: 5 }, (_, index) => index);
+
   return `
     <form class="form-stack" id="task-add-bulk-form">
-      <label>
-        親タスク
-        ${renderParentSelect(parentOptions, forcedParentValue, !!parentTask)}
-        ${parentTask ? `<input type="hidden" name="parentTask" value="${escapeHtml(forcedParentValue)}">` : ''}
-      </label>
+      <div id="task-bulk-rows" class="task-bulk-rows">
+        ${rows.map(index => renderTaskBulkRow(parentOptions, forcedParentValue, !!parentTask, index)).join('')}
+      </div>
 
-      <label>
-        タスク名
-        <textarea name="titles" placeholder="1行に1タスクずつ入力"></textarea>
-      </label>
+      <button class="btn-secondary" type="button" id="task-bulk-add-row">
+        ＋ 行を追加
+      </button>
 
-      <p class="meta">※複数追加では、タイトルと親タスクのみ登録します。</p>
+      <p class="meta">※タスク名が空の行は登録されません。</p>
 
       <div class="modal-actions">
         <button class="btn-primary" type="submit">まとめて追加する</button>
       </div>
     </form>
+  `;
+}
+
+function renderTaskBulkRow(parentOptions = [], selectedParent = '', fixedParent = false, index = 0) {
+  return `
+    <div class="task-bulk-row" data-task-bulk-row>
+      <input
+        name="taskName_${index}"
+        placeholder="タスクタイトル"
+      >
+
+      ${renderParentSelect(parentOptions, selectedParent, fixedParent)}
+
+      ${fixedParent ? `<input type="hidden" name="parentTask_${index}" value="${escapeHtml(selectedParent)}">` : ''}
+    </div>
   `;
 }
 
@@ -619,26 +633,51 @@ function bindTaskAddModalEvents(context) {
     });
   }
 
-  const bulkForm = document.getElementById('task-add-bulk-form');
-  if (bulkForm) {
-    bulkForm.addEventListener('submit', async event => {
-      event.preventDefault();
+const bulkForm = document.getElementById('task-add-bulk-form');
+if (bulkForm) {
+  const addRowButton = document.getElementById('task-bulk-add-row');
+  const rowsWrap = document.getElementById('task-bulk-rows');
 
-      const formData = new FormData(bulkForm);
+  if (addRowButton && rowsWrap) {
+    addRowButton.addEventListener('click', () => {
+      const index = rowsWrap.querySelectorAll('[data-task-bulk-row]').length;
 
-      const data = {
-        parentTask: formData.get('parentTask'),
-        titles: formData.get('titles'),
-      };
-
-      if (!String(data.titles || '').trim()) {
-        alert('追加するタスク名を入力してください。');
-        return;
-      }
-
-      await submitTaskAdd('addTaskBulk', data);
+      rowsWrap.insertAdjacentHTML(
+        'beforeend',
+        renderTaskBulkRow(
+          context.parentOptions || [],
+          context.parentTask
+            ? `${context.parentTask.no || ''}.${context.parentTask.taskName || context.parentTask.title || ''}`.trim()
+            : '',
+          !!context.parentTask,
+          index
+        )
+      );
     });
   }
+
+  bulkForm.addEventListener('submit', async event => {
+    event.preventDefault();
+
+    const rows = [...bulkForm.querySelectorAll('[data-task-bulk-row]')].map(row => {
+      const taskName = row.querySelector('input[placeholder="タスクタイトル"]')?.value || '';
+      const parentSelect = row.querySelector('select[name="parentTask"]');
+      const parentHidden = row.querySelector('input[type="hidden"][name^="parentTask_"]');
+
+      return {
+        taskName: taskName.trim(),
+        parentTask: String(parentHidden?.value || parentSelect?.value || '').trim(),
+      };
+    }).filter(row => row.taskName);
+
+    if (rows.length === 0) {
+      alert('追加するタスク名を入力してください。');
+      return;
+    }
+
+    await submitTaskAdd('addTaskBulk', { rows });
+  });
+}
 }
 
 async function submitTaskAdd(action, data) {
