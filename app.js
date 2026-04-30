@@ -468,15 +468,6 @@ function bindTaskStatusTabs() {
   });
 }
 
-function bindTaskStatusTabs(tasks) {
-  document.querySelectorAll('[data-task-tab]').forEach((button) => {
-    button.addEventListener('click', () => {
-      state.taskStatusTab = button.dataset.taskTab || 'incomplete';
-      renderTasksScreen(tasks || []);
-    });
-  });
-}
-
 function getParentTaskLabel(task) {
   const parent = String(task?.parentTask || '').trim();
   if (parent) return parent;
@@ -591,9 +582,9 @@ function renderTaskTree(nodes) {
             <span class="wbs-task-title">${escapeHtml(task.taskName || '無題のタスク')}</span>
             <span class="wbs-task-meta">${escapeHtml(task.assignee || '未定')}${task.dueDate ? ` / ${escapeHtml(task.dueDate)}` : ''}</span>
           </button>
-          ${dueText ? `<span class="wbs-due-pill">${dueText}</span>` : ''}
-          ${renderWbsProgress(task)}
+                   ${dueText ? `<span class="wbs-due-pill">${dueText}</span>` : ''}
         </div>
+        ${renderWbsProgress(task)}
         ${hasChildren ? `<div class="wbs-children">${task.children.map(renderNode).join('')}</div>` : ''}
       </div>
     `;
