@@ -2797,22 +2797,40 @@ function bindExpenseEvents(expenses) {
   }
 
   document.querySelectorAll('.expense-open-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const expense = expenses.find(item => String(item.id) === String(btn.dataset.expenseId));
+    btn.addEventListener('click', event => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const expense = (state.allExpenses || []).find(item => {
+        return String(item.id) === String(btn.dataset.expenseId);
+      });
+
       if (expense) openExpenseDetailModal(expense);
     });
   });
 
   document.querySelectorAll('.expense-edit-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const expense = expenses.find(item => String(item.id) === String(btn.dataset.expenseId));
+    btn.addEventListener('click', event => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const expense = (state.allExpenses || []).find(item => {
+        return String(item.id) === String(btn.dataset.expenseId);
+      });
+
       openExpenseEditModal(expense);
     });
   });
 
   document.querySelectorAll('.expense-delete-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const expense = expenses.find(item => String(item.id) === String(btn.dataset.expenseId));
+    btn.addEventListener('click', event => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const expense = (state.allExpenses || []).find(item => {
+        return String(item.id) === String(btn.dataset.expenseId);
+      });
+
       if (expense) deleteExpenseFromUi(expense);
     });
   });
@@ -2863,18 +2881,39 @@ function openExpenseEditModal(expense = null) {
         <input id="expense-form-title" type="text" value="${escapeHtml(expense?.title || '')}">
       </label>
 
-      <label>レシートURL
-        <input id="expense-form-receipt" type="url" value="${escapeHtml(expense?.receiptUrl || '')}" placeholder="https://drive.google.com/...">
-      </label>
-      <label>レシート画像
-  <input id="expense-form-file" type="file" accept="image/*,application/pdf">
-</label>
+      <input id="expense-form-receipt" type="hidden" value="${escapeHtml(expense?.receiptUrl || '')}">
+      <input id="expense-form-file-id" type="hidden" value="${escapeHtml(expense?.receiptFileId || '')}">
 
-<button id="expense-upload-btn" class="btn-secondary" type="button">
-  レシートをアップロード
-</button>
+      <div class="receipt-upload-box">
+        <p class="meta">レシート</p>
 
-<p id="expense-upload-status" class="meta"></p>
+        <div class="modal-actions">
+          <label class="btn-secondary file-select-label">
+            ファイルを選択
+            <input id="expense-form-file" class="hidden-file-input" type="file" accept="image/*,application/pdf">
+          </label>
+
+          <label class="btn-secondary file-select-label">
+            その場で撮影
+            <input id="expense-form-camera" class="hidden-file-input" type="file" accept="image/*" capture="environment">
+          </label>
+        </div>
+
+        <p id="expense-upload-status" class="meta">
+          ${expense?.receiptUrl ? 'レシート登録済み' : '未アップロード'}
+        </p>
+
+        ${expense?.receiptUrl ? `
+          <div id="expense-current-receipt" class="receipt-current-box">
+            <a class="btn-secondary" href="${escapeHtml(expense.receiptUrl)}" target="_blank" rel="noopener">
+              登録済みレシートを開く
+            </a>
+            <button id="expense-remove-receipt-btn" class="btn-danger" type="button">
+              登録画像を削除
+            </button>
+          </div>
+        ` : ''}
+      </div>
 
       <label>金額
         <input id="expense-form-amount" type="number" min="0" inputmode="numeric" value="${escapeHtml(expense?.amount || '')}">
@@ -2900,40 +2939,76 @@ function openExpenseEditModal(expense = null) {
     </div>
   `);
 
-  document.getElementById('expense-upload-btn')?.addEventListener('click', async () => {
   const fileInput = document.getElementById('expense-form-file');
-  const statusEl = document.getElementById('expense-upload-status');
+  const cameraInput = document.getElementById('expense-form-camera');
   const receiptInput = document.getElementById('expense-form-receipt');
+  const fileIdInput = document.getElementById('expense-form-file-id');
+  const statusEl = document.getElementById('expense-upload-status');
 
-  const file = fileInput?.files?.[0];
+  const handleSelectedFile = async file => {
+    if (!file) return;
 
-  if (!file) {
-    statusEl.textContent = 'アップロードするファイルを選択してください。';
-    return;
-  }
+    statusEl.textContent = 'アップロード中…保存ボタンは押してOKです。';
 
-  try {
-    statusEl.textContent = 'アップロード中…';
+    uploadReceiptFile(file)
+      .then(result => {
+        if (!result.ok) {
+          throw new Error(result.error || 'アップロードに失敗しました。');
+        }
 
-    const result = await uploadReceiptFile(file);
+        receiptInput.value = result.fileUrl || '';
+        fileIdInput.value = result.fileId || '';
+        statusEl.textContent = 'アップロード完了';
+      })
+      .catch(async err => {
+        console.error(err);
+        alert(err.message || 'レシートのアップロードに失敗しました。');
 
-    if (!result.ok) {
-      throw new Error(result.error || 'アップロードに失敗しました。');
+        const rowId = isEdit ? expense.id : null;
+
+        if (rowId) {
+          await deleteExpenseFromUiById(rowId, false);
+        } else {
+          closeModal();
+        }
+      });
+  };
+
+  fileInput?.addEventListener('change', () => {
+    handleSelectedFile(fileInput.files?.[0]);
+  });
+
+  cameraInput?.addEventListener('change', () => {
+    handleSelectedFile(cameraInput.files?.[0]);
+  });
+
+  document.getElementById('expense-remove-receipt-btn')?.addEventListener('click', async () => {
+    const ok = confirm('登録済みレシート画像を削除しますか？');
+    if (!ok) return;
+
+    const fileId = fileIdInput.value.trim();
+
+    try {
+      if (fileId) {
+        await deleteReceiptFile(fileId);
+      }
+
+      receiptInput.value = '';
+      fileIdInput.value = '';
+      statusEl.textContent = 'レシートを削除しました。保存すると反映されます。';
+
+      document.getElementById('expense-current-receipt')?.remove();
+
+    } catch (err) {
+      alert(err.message || 'レシート画像の削除に失敗しました。');
     }
-
-    receiptInput.value = result.fileUrl || '';
-    statusEl.textContent = 'アップロード完了！レシートURLを入力しました。';
-
-  } catch (err) {
-    console.error(err);
-    statusEl.textContent = err.message || 'アップロードに失敗しました。';
-  }
-});
+  });
 
   document.getElementById('expense-save-btn').addEventListener('click', async () => {
     const data = {
       title: document.getElementById('expense-form-title').value.trim(),
-      receiptUrl: document.getElementById('expense-form-receipt').value.trim(),
+      receiptUrl: receiptInput.value.trim(),
+      receiptFileId: fileIdInput.value.trim(),
       amount: document.getElementById('expense-form-amount').value.trim(),
       payer: document.getElementById('expense-form-payer').value.trim(),
       settled: document.getElementById('expense-form-settled').checked,
@@ -2944,8 +3019,11 @@ function openExpenseEditModal(expense = null) {
       return;
     }
 
-    if (!(data.title && data.amount) && !data.receiptUrl) {
-      setError('タイトル＋金額、またはレシートURLのどちらかを入力してください。');
+    const uploadStatusText = String(statusEl.textContent || '');
+    const isUploading = uploadStatusText.includes('アップロード中');
+
+    if (!(data.title && data.amount) && !data.receiptUrl && !isUploading) {
+      setError('タイトル＋金額、またはレシートのどちらかを入力してください。');
       return;
     }
 
@@ -3013,31 +3091,41 @@ function openExpenseEditModal(expense = null) {
   });
 }
 
-async function deleteExpenseFromUi(expense) {
+async function deleteExpenseFromUiById(id, confirmBeforeDelete = true) {
+  const expense = (state.allExpenses || []).find(item => String(item.id) === String(id));
+  if (!expense) return;
+
+  if (confirmBeforeDelete) {
+    const ok = confirm(`「${expense.title || 'この経費'}」を削除しますか？`);
+    if (!ok) return;
+  }
+
   const beforeExpenses = [...(state.allExpenses || [])];
 
   try {
-    const ok = confirm(`「${expense.title || 'この経費'}」を削除しますか？`);
-    if (!ok) return;
-
-    closeModal();
-
     state.allExpenses = (state.allExpenses || []).filter(item => {
-      return String(item.id) !== String(expense.id);
+      return String(item.id) !== String(id);
     });
 
     rerenderExpensesWithoutFetch();
 
+    if (expense.receiptFileId) {
+      await deleteReceiptFile(expense.receiptFileId);
+    }
+
     await apiGet('deleteExpense', {
-      id: expense.id,
+      id,
     });
 
   } catch (err) {
     alert(err.message || '経費の削除に失敗しました。');
-
     state.allExpenses = beforeExpenses;
     rerenderExpensesWithoutFetch();
   }
+}
+
+async function deleteExpenseFromUi(expense) {
+  await deleteExpenseFromUiById(expense.id, true);
 }
 
 function formatExpenseAmount(value) {
@@ -3957,6 +4045,7 @@ function uploadReceiptFile(file) {
         const res = await fetch(RECEIPT_UPLOAD_URL, {
           method: 'POST',
           body: JSON.stringify({
+            action: 'upload',
             fileName: file.name,
             mimeType: file.type,
             base64,
@@ -3974,4 +4063,22 @@ function uploadReceiptFile(file) {
     reader.onerror = () => reject(new Error('ファイルの読み込みに失敗しました。'));
     reader.readAsDataURL(file);
   });
+}
+
+async function deleteReceiptFile(fileId) {
+  const res = await fetch(RECEIPT_UPLOAD_URL, {
+    method: 'POST',
+    body: JSON.stringify({
+      action: 'delete',
+      fileId,
+    }),
+  });
+
+  const json = await res.json();
+
+  if (!json.ok) {
+    throw new Error(json.error || 'レシート画像の削除に失敗しました。');
+  }
+
+  return json;
 }
