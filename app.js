@@ -90,10 +90,16 @@ function apiGet(action, params = {}) {
 
 let appleLoadingTimer = null;
 
+function setAppleProgress(percent) {
+  const fill = document.querySelector('#loading .apple-fill');
+  if (!fill) return;
+
+  const safePercent = Math.max(0, Math.min(100, Number(percent) || 0));
+  fill.style.transform = `scaleY(${safePercent / 100})`;
+}
+
 function setLoading(show) {
   if (!el.loading) return;
-
-  const apple = el.loading.querySelector('.apple-loader');
 
   el.loading.classList.toggle('hidden', !show);
 
@@ -103,18 +109,19 @@ function setLoading(show) {
   }
 
   if (show) {
-    let progress = 12;
-    apple?.style.setProperty('--apple-progress', `${progress}%`);
+    let progress = 0;
+    setAppleProgress(progress);
 
     appleLoadingTimer = setInterval(() => {
       progress = Math.min(progress + 8, 88);
-      apple?.style.setProperty('--apple-progress', `${progress}%`);
+      setAppleProgress(progress);
     }, 180);
   } else {
-    apple?.style.setProperty('--apple-progress', '100%');
+    setAppleProgress(100);
 
     setTimeout(() => {
-      apple?.style.setProperty('--apple-progress', '0%');
+      el.loading.classList.add('hidden');
+      setAppleProgress(0);
     }, 220);
   }
 }
