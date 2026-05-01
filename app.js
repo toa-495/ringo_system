@@ -91,7 +91,12 @@ function apiGet(action, params = {}) {
 let appleLoadingTimer = null;
 
 function setAppleProgress(percent) {
-  const fill = document.querySelector('#loading .apple-red');
+  const mask = document.querySelector('#loading .apple-red-mask');
+  if (!mask) return;
+
+  const safePercent = Math.max(0, Math.min(100, Number(percent) || 0));
+  mask.style.height = `${safePercent}%`;
+}
   if (!fill) return;
 
   const safePercent = Math.max(0, Math.min(100, Number(percent) || 0));
