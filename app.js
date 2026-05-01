@@ -88,8 +88,35 @@ function apiGet(action, params = {}) {
   });
 }
 
+let appleLoadingTimer = null;
+
 function setLoading(show) {
+  if (!el.loading) return;
+
+  const apple = el.loading.querySelector('.apple-loader');
+
   el.loading.classList.toggle('hidden', !show);
+
+  if (appleLoadingTimer) {
+    clearInterval(appleLoadingTimer);
+    appleLoadingTimer = null;
+  }
+
+  if (show) {
+    let progress = 12;
+    apple?.style.setProperty('--apple-progress', `${progress}%`);
+
+    appleLoadingTimer = setInterval(() => {
+      progress = Math.min(progress + 8, 88);
+      apple?.style.setProperty('--apple-progress', `${progress}%`);
+    }, 180);
+  } else {
+    apple?.style.setProperty('--apple-progress', '100%');
+
+    setTimeout(() => {
+      apple?.style.setProperty('--apple-progress', '0%');
+    }, 220);
+  }
 }
 
 function setError(message = '') {
