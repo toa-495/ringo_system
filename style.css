@@ -1955,3 +1955,29 @@ button {
   transform: rotate(-18deg);
   z-index: 4;
 }
+
+.apple-loading {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 3000;
+  pointer-events: none;
+}
+
+.apple-loader {
+  width: 58px;
+  height: 58px;
+  filter: drop-shadow(0 8px 18px rgba(0,0,0,0.22));
+}
+
+.apple-bg {
+  fill: #080808;
+}
+
+.apple-fill {
+  fill: #d93025;
+  transform-box: fill-box;
+  transform-origin: bottom;
+  transform: translateY(calc(100% - var(--apple-progress, 0%)));
+  transition: transform 0.25s ease;
+}
