@@ -13,6 +13,9 @@ const state = {
 allQuestions: null,
 allMemos: null,
 allGuests: null,
+allExpenses: null,
+expenseStatus: 'unsettled',
+expenseOptions: { payers: [] },
 milestoneCache: null,
 calendarCache: null,
 };
@@ -1252,6 +1255,11 @@ if (view === 'memos') {
   return;
 }
 
+if (view === 'expenses') {
+  await loadExpenses();
+  return;
+}
+  
 if (view === 'guests') {
   await loadGuests();
   return;
@@ -1998,6 +2006,16 @@ function rerenderMemosWithoutFetch() {
   bindMemoRefreshButton();
 }
 
+function rerenderExpensesWithoutFetch() {
+  const list = document.querySelector('.expense-list');
+  if (list) {
+    list.innerHTML = renderExpenseRows(filterExpensesByStatus(state.allExpenses || [], state.expenseStatus));
+  }
+
+  bindExpenseEvents(filterExpensesByStatus(state.allExpenses || [], state.expenseStatus));
+  bindExpenseRefreshButton();
+}
+
 function rerenderGuestsWithoutFetch() {
   const list = document.querySelector('.guest-list');
   if (list) list.innerHTML = renderGuestRows(state.allGuests || []);
@@ -2655,6 +2673,338 @@ function openMilestoneDetailModal(item) {
       ${renderDetailRow('詳細', item.detail || '未入力')}
     </div>
   `);
+}
+
+async function loadExpenses(status = state.expenseStatus || 'unsettled') {
+  state.expenseStatus = status;
+  setLoading(true);
+  setError('');
+
+  try {
+    if (!state.allExpenses) {
+      const [expenses, options] = await Promise.all([
+        apiGet('getExpenses', { status: 'all' }),
+        apiGet('getExpenseOptions'),
+      ]);
+
+      state.allExpenses = expenses || [];
+      state.expenseOptions = options || { payers: [] };
+    }
+
+    const expenses = filterExpensesByStatus(state.allExpenses || [], status);
+
+    el.views.expenses.innerHTML = `
+      <section class="card expense-page">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">Expenses</p>
+            <h3>経費登録</h3>
+            <p class="meta">レシートURL・金額・支払い者・精算状況を管理します。</p>
+          </div>
+          <button id="expense-refresh-btn" class="btn-secondary" type="button">
+            最新状態に更新
+          </button>
+        </div>
+
+        <div class="question-tabs">
+          <button class="question-tab ${status === 'unsettled' ? 'active' : ''}" data-expense-status="unsettled">未精算</button>
+          <button class="question-tab ${status === 'settled' ? 'active' : ''}" data-expense-status="settled">精算済</button>
+          <button class="question-tab ${status === 'all' ? 'active' : ''}" data-expense-status="all">すべて</button>
+        </div>
+
+        <div class="expense-list">
+          ${renderExpenseRows(expenses)}
+        </div>
+
+        <button id="expense-add-btn" class="floating-add-btn" type="button">＋</button>
+      </section>
+    `;
+
+    bindExpenseEvents(expenses);
+    bindExpenseRefreshButton();
+  } catch (err) {
+    console.error(err);
+    setError(err.message || '経費登録の読み込みに失敗しました。');
+  } finally {
+    setLoading(false);
+  }
+}
+
+function filterExpensesByStatus(expenses, status) {
+  const list = expenses || [];
+
+  if (status === 'settled') {
+    return list.filter(e => e.settled === true);
+  }
+
+  if (status === 'all') {
+    return list;
+  }
+
+  return list.filter(e => e.settled !== true);
+}
+
+function renderExpenseRows(expenses) {
+  if (!expenses.length) return '<p class="meta">該当する経費はありません。</p>';
+
+  return expenses.map(expense => `
+    <div class="data-row expense-row">
+      <button class="memo-open-btn expense-open-btn" type="button" data-expense-id="${escapeHtml(expense.id)}">
+        <div class="data-main">
+          <strong>${escapeHtml(expense.title || 'レシート登録')}</strong>
+          <span class="meta">
+            支払い者：${escapeHtml(expense.payer || '未設定')}
+            ${expense.amount ? ` / ${escapeHtml(formatExpenseAmount(expense.amount))}円` : ''}
+          </span>
+          <span class="meta">
+            ${expense.settled ? '精算済' : '未精算'}
+            ${expense.receiptUrl ? ' / レシートあり' : ' / レシートなし'}
+          </span>
+        </div>
+        <div class="data-sub">
+          <span>No.${escapeHtml(expense.no || '')}</span>
+        </div>
+      </button>
+
+      <div class="data-sub">
+        <button class="expense-edit-btn" type="button" data-expense-id="${escapeHtml(expense.id)}">✒</button>
+        <button class="btn-danger mini-danger-btn expense-delete-btn" type="button" data-expense-id="${escapeHtml(expense.id)}">削除</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function bindExpenseRefreshButton() {
+  const button = document.getElementById('expense-refresh-btn');
+  if (!button) return;
+
+  button.addEventListener('click', async () => {
+    state.allExpenses = null;
+    await loadExpenses(state.expenseStatus);
+  });
+}
+
+function bindExpenseEvents(expenses) {
+  document.querySelectorAll('[data-expense-status]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      loadExpenses(btn.dataset.expenseStatus);
+    });
+  });
+
+  const addBtn = document.getElementById('expense-add-btn');
+  if (addBtn) {
+    addBtn.addEventListener('click', () => openExpenseEditModal());
+  }
+
+  document.querySelectorAll('.expense-open-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const expense = expenses.find(item => String(item.id) === String(btn.dataset.expenseId));
+      if (expense) openExpenseDetailModal(expense);
+    });
+  });
+
+  document.querySelectorAll('.expense-edit-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const expense = expenses.find(item => String(item.id) === String(btn.dataset.expenseId));
+      openExpenseEditModal(expense);
+    });
+  });
+
+  document.querySelectorAll('.expense-delete-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const expense = expenses.find(item => String(item.id) === String(btn.dataset.expenseId));
+      if (expense) deleteExpenseFromUi(expense);
+    });
+  });
+}
+
+function openExpenseDetailModal(expense) {
+  const receiptUrl = String(expense.receiptUrl || '').trim();
+
+  openModal(`
+    <p class="eyebrow">経費詳細</p>
+    <h3>${escapeHtml(expense.title || 'レシート登録')}</h3>
+
+    <div class="detail-list">
+      ${renderDetailRow('金額', expense.amount ? `${formatExpenseAmount(expense.amount)}円` : '未入力')}
+      ${renderDetailRow('支払い者', expense.payer || '未設定')}
+      ${renderDetailRow('精算', expense.settled ? '精算済' : '未精算')}
+      ${renderDetailRow('レシート', receiptUrl ? '登録あり' : '未登録')}
+    </div>
+
+    ${receiptUrl ? `
+      <div class="modal-actions">
+        <a class="primary-btn" href="${escapeHtml(receiptUrl)}" target="_blank" rel="noopener">
+          レシートを開く
+        </a>
+        <button id="expense-edit-from-detail-btn" class="btn-secondary" type="button">編集</button>
+      </div>
+    ` : `
+      <div class="modal-actions">
+        <button id="expense-edit-from-detail-btn" class="btn-secondary" type="button">編集</button>
+      </div>
+    `}
+  `);
+
+  document.getElementById('expense-edit-from-detail-btn')?.addEventListener('click', () => {
+    openExpenseEditModal(expense);
+  });
+}
+
+function openExpenseEditModal(expense = null) {
+  const isEdit = !!expense;
+
+  openModal(`
+    <p class="eyebrow">${isEdit ? '経費を編集' : '経費を追加'}</p>
+    <h3>${isEdit ? '経費登録の編集' : '新しい経費'}</h3>
+
+    <div class="form-stack">
+      <label>タイトル
+        <input id="expense-form-title" type="text" value="${escapeHtml(expense?.title || '')}">
+      </label>
+
+      <label>レシートURL
+        <input id="expense-form-receipt" type="url" value="${escapeHtml(expense?.receiptUrl || '')}" placeholder="https://drive.google.com/...">
+      </label>
+
+      <label>金額
+        <input id="expense-form-amount" type="number" min="0" inputmode="numeric" value="${escapeHtml(expense?.amount || '')}">
+      </label>
+
+      <label>支払い者
+        <select id="expense-form-payer">
+          <option value="">選択してください</option>
+          ${(state.expenseOptions?.payers || []).map(payer => `
+            <option value="${escapeHtml(payer)}" ${payer === expense?.payer ? 'selected' : ''}>
+              ${escapeHtml(payer)}
+            </option>
+          `).join('')}
+        </select>
+      </label>
+
+      <label class="check-row">
+        <input id="expense-form-settled" type="checkbox" ${expense?.settled === true ? 'checked' : ''}>
+        精算済みにする
+      </label>
+
+      <button id="expense-save-btn" class="primary-btn" type="button">保存</button>
+    </div>
+  `);
+
+  document.getElementById('expense-save-btn').addEventListener('click', async () => {
+    const data = {
+      title: document.getElementById('expense-form-title').value.trim(),
+      receiptUrl: document.getElementById('expense-form-receipt').value.trim(),
+      amount: document.getElementById('expense-form-amount').value.trim(),
+      payer: document.getElementById('expense-form-payer').value.trim(),
+      settled: document.getElementById('expense-form-settled').checked,
+    };
+
+    if (!data.payer) {
+      setError('支払い者を選択してください。');
+      return;
+    }
+
+    if (!(data.title && data.amount) && !data.receiptUrl) {
+      setError('タイトル＋金額、またはレシートURLのどちらかを入力してください。');
+      return;
+    }
+
+    try {
+      setError('');
+
+      const beforeExpenses = [...(state.allExpenses || [])];
+
+      closeModal();
+
+      if (isEdit) {
+        state.allExpenses = (state.allExpenses || []).map(item => {
+          if (String(item.id) !== String(expense.id)) return item;
+          return {
+            ...item,
+            ...data,
+            settledLabel: data.settled ? '精算済' : '未精算',
+          };
+        });
+
+        rerenderExpensesWithoutFetch();
+
+        await apiGet('updateExpense', {
+          id: expense.id,
+          data: JSON.stringify(data),
+        });
+      } else {
+        const tempId = makeTempId('expense');
+
+        state.allExpenses = [
+          ...(state.allExpenses || []),
+          {
+            id: tempId,
+            no: '',
+            ...data,
+            settledLabel: data.settled ? '精算済' : '未精算',
+            _optimistic: true,
+          },
+        ];
+
+        rerenderExpensesWithoutFetch();
+
+        const result = await apiGet('addExpense', {
+          data: JSON.stringify(data),
+        });
+
+        if (result?.row) {
+          state.allExpenses = (state.allExpenses || []).map(item => {
+            if (item.id !== tempId) return item;
+            return { ...item, id: result.row, _optimistic: false };
+          });
+          rerenderExpensesWithoutFetch();
+        }
+      }
+
+    } catch (err) {
+      console.error(err);
+      setError(err.message || '経費の保存に失敗しました。');
+
+      if (typeof beforeExpenses !== 'undefined') {
+        state.allExpenses = beforeExpenses;
+        rerenderExpensesWithoutFetch();
+      }
+    }
+  });
+}
+
+async function deleteExpenseFromUi(expense) {
+  const beforeExpenses = [...(state.allExpenses || [])];
+
+  try {
+    const ok = confirm(`「${expense.title || 'この経費'}」を削除しますか？`);
+    if (!ok) return;
+
+    closeModal();
+
+    state.allExpenses = (state.allExpenses || []).filter(item => {
+      return String(item.id) !== String(expense.id);
+    });
+
+    rerenderExpensesWithoutFetch();
+
+    await apiGet('deleteExpense', {
+      id: expense.id,
+    });
+
+  } catch (err) {
+    alert(err.message || '経費の削除に失敗しました。');
+
+    state.allExpenses = beforeExpenses;
+    rerenderExpensesWithoutFetch();
+  }
+}
+
+function formatExpenseAmount(value) {
+  const n = Number(String(value || '').replace(/,/g, ''));
+  if (!Number.isFinite(n)) return escapeHtml(value || '');
+  return n.toLocaleString('ja-JP');
 }
 
 async function loadGuests() {
