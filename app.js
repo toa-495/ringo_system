@@ -2866,6 +2866,15 @@ function openExpenseEditModal(expense = null) {
       <label>レシートURL
         <input id="expense-form-receipt" type="url" value="${escapeHtml(expense?.receiptUrl || '')}" placeholder="https://drive.google.com/...">
       </label>
+      <label>レシート画像
+  <input id="expense-form-file" type="file" accept="image/*,application/pdf">
+</label>
+
+<button id="expense-upload-btn" class="btn-secondary" type="button">
+  レシートをアップロード
+</button>
+
+<p id="expense-upload-status" class="meta"></p>
 
       <label>金額
         <input id="expense-form-amount" type="number" min="0" inputmode="numeric" value="${escapeHtml(expense?.amount || '')}">
@@ -2890,6 +2899,36 @@ function openExpenseEditModal(expense = null) {
       <button id="expense-save-btn" class="primary-btn" type="button">保存</button>
     </div>
   `);
+
+  document.getElementById('expense-upload-btn')?.addEventListener('click', async () => {
+  const fileInput = document.getElementById('expense-form-file');
+  const statusEl = document.getElementById('expense-upload-status');
+  const receiptInput = document.getElementById('expense-form-receipt');
+
+  const file = fileInput?.files?.[0];
+
+  if (!file) {
+    statusEl.textContent = 'アップロードするファイルを選択してください。';
+    return;
+  }
+
+  try {
+    statusEl.textContent = 'アップロード中…';
+
+    const result = await uploadReceiptFile(file);
+
+    if (!result.ok) {
+      throw new Error(result.error || 'アップロードに失敗しました。');
+    }
+
+    receiptInput.value = result.fileUrl || '';
+    statusEl.textContent = 'アップロード完了！レシートURLを入力しました。';
+
+  } catch (err) {
+    console.error(err);
+    statusEl.textContent = err.message || 'アップロードに失敗しました。';
+  }
+});
 
   document.getElementById('expense-save-btn').addEventListener('click', async () => {
     const data = {
@@ -3906,3 +3945,33 @@ window.addEventListener('hashchange', () => {
   const view = location.hash.replace('#', '') || 'home';
   loadView(VIEW_TITLES[view] ? view : 'home');
 });
+
+function uploadReceiptFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = async () => {
+      try {
+        const base64 = String(reader.result).split(',')[1];
+
+        const res = await fetch(RECEIPT_UPLOAD_URL, {
+          method: 'POST',
+          body: JSON.stringify({
+            fileName: file.name,
+            mimeType: file.type,
+            base64,
+          }),
+        });
+
+        const json = await res.json();
+        resolve(json);
+
+      } catch (err) {
+        reject(err);
+      }
+    };
+
+    reader.onerror = () => reject(new Error('ファイルの読み込みに失敗しました。'));
+    reader.readAsDataURL(file);
+  });
+}
