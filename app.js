@@ -110,19 +110,32 @@ function setLoading(show) {
 
   if (show) {
     let progress = 0;
-    setAppleProgress(progress);
+    let dotCount = 1;
+
+    setAppleProgress(0);
 
     appleLoadingTimer = setInterval(() => {
-      progress = Math.min(progress + 8, 88);
+      // 一気に満ちないように、後半ほどゆっくり進む
+      const next = progress + Math.max(1.2, (92 - progress) * 0.08);
+      progress = Math.min(next, 92);
       setAppleProgress(progress);
-    }, 180);
+
+      const dots = document.getElementById('loading-dots');
+      if (dots) {
+        dots.textContent = '.'.repeat(dotCount);
+        dotCount = dotCount >= 3 ? 1 : dotCount + 1;
+      }
+    }, 220);
   } else {
     setAppleProgress(100);
+
+    const dots = document.getElementById('loading-dots');
+    if (dots) dots.textContent = '...';
 
     setTimeout(() => {
       el.loading.classList.add('hidden');
       setAppleProgress(0);
-    }, 220);
+    }, 350);
   }
 }
 
