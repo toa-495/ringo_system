@@ -2160,15 +2160,17 @@ function bindQuestionEvents(questions) {
     openQuestionModal();
   });
 
-    document.querySelectorAll('.question-delete-btn').forEach(btn => {
+  document.querySelectorAll('.question-edit-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const q = questions.find(item => String(item.id) === String(btn.dataset.questionId));
+      if (q) openQuestionModal(q);
+    });
+  });
+
+  document.querySelectorAll('.question-delete-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const q = questions.find(item => String(item.id) === String(btn.dataset.questionId));
       if (q) deleteQuestionFromUi(q);
-    });
-  });
-    btn.addEventListener('click', () => {
-      const q = questions.find(item => String(item.id) === String(btn.dataset.questionId));
-      openQuestionModal(q);
     });
   });
 }
