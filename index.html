@@ -141,28 +141,29 @@
     </div>
 
     <div id="loading" class="apple-loading hidden">
-  <svg class="apple-loader" viewBox="0 0 128 128" aria-label="loading">
-    <defs>
-      <clipPath id="apple-clip">
-        <path d="M64 34
-          C52 22 26 26 18 50
-          C8 80 28 116 52 113
-          C58 112 61 108 64 108
-          C67 108 70 112 76 113
-          C100 116 120 80 110 50
-          C102 26 76 22 64 34Z" />
-        <path d="M66 31
-          C67 19 72 10 80 6
-          C86 4 91 9 88 15
-          C84 23 78 27 73 34Z" />
-      </clipPath>
-    </defs>
+  <svg class="apple-loader" viewBox="0 0 100 100">
+  <defs>
+    <clipPath id="apple-clip">
+      <path d="
+        M50 20
+        C40 10 20 15 20 35
+        C20 65 40 85 50 85
+        C60 85 80 65 80 35
+        C80 15 60 10 50 20
+        Z
+        M55 18
+        C60 5 75 5 78 15
+        C70 15 60 20 55 25
+        Z
+      "/>
+    </clipPath>
+  </defs>
 
-    <g clip-path="url(#apple-clip)">
-      <rect class="apple-bg" x="0" y="0" width="128" height="128"></rect>
-      <rect class="apple-fill" x="0" y="128" width="128" height="128"></rect>
-    </g>
-  </svg>
+  <g clip-path="url(#apple-clip)">
+    <rect x="0" y="0" width="100" height="100" fill="#000"/>
+    <rect class="apple-fill" x="0" y="100" width="100" height="100"/>
+  </g>
+</svg>
 </div>
     <div id="error" class="error hidden"></div>
 
