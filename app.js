@@ -2854,25 +2854,24 @@ function openExpenseDetailModal(expense) {
       ${renderDetailRow('金額', expense.amount ? `${formatExpenseAmount(expense.amount)}円` : '未入力')}
       ${renderDetailRow('支払い者', expense.payer || '未設定')}
       ${renderDetailRow('精算', expense.settled ? '精算済' : '未精算')}
-      ${renderDetailRow('レシート', receiptUrl ? '登録あり' : '未登録')}
+      ${renderDetailRow(
+        'レシート',
+        receiptUrl === '__UPLOADING__'
+          ? 'アップロード中'
+          : hasValidReceiptUrl
+            ? '登録あり'
+            : '未登録'
+      )}
     </div>
 
-    ${hasValidReceiptUrl ? `
-  <div class="modal-actions">
-    <a class="primary-btn" href="${escapeHtml(receiptUrl)}" target="_blank" rel="noopener">
-      レシートを開く
-    </a>
-    <button id="expense-edit-from-detail-btn" class="btn-secondary" type="button">編集</button>
-  </div>
-` : `
-  <div class="modal-actions">
-    <button id="expense-edit-from-detail-btn" class="btn-secondary" type="button">編集</button>
-  </div>
-`}
-      <div class="modal-actions">
-        <button id="expense-edit-from-detail-btn" class="btn-secondary" type="button">編集</button>
-      </div>
-    `}
+    <div class="modal-actions">
+      ${
+        hasValidReceiptUrl
+          ? `<a class="primary-btn" href="${escapeHtml(receiptUrl)}" target="_blank" rel="noopener">レシートを開く</a>`
+          : ''
+      }
+      <button id="expense-edit-from-detail-btn" class="btn-secondary" type="button">編集</button>
+    </div>
   `);
 
   document.getElementById('expense-edit-from-detail-btn')?.addEventListener('click', () => {
