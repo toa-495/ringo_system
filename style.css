@@ -1892,69 +1892,6 @@ button {
     grid-template-columns: 1fr;
   }
 }
-.apple-loading {
-  position: fixed;
-  right: 16px;
-  bottom: 16px;
-  z-index: 3000;
-  pointer-events: none;
-}
-
-.apple-loader {
-  position: relative;
-  width: 46px;
-  height: 46px;
-  border-radius: 48% 52% 45% 45%;
-  background: #111;
-  overflow: hidden;
-  box-shadow: 0 8px 22px rgba(0,0,0,0.22);
-}
-
-.apple-loader::before {
-  content: "";
-  position: absolute;
-  top: -5px;
-  left: 18px;
-  width: 11px;
-  height: 9px;
-  background: #fff;
-  border-radius: 50%;
-  z-index: 3;
-}
-
-.apple-fill {
-  position: absolute;
-  left: 0;
-  bottom: 0;
-  width: 100%;
-  height: var(--apple-progress, 12%);
-  background: #e53935;
-  transition: height 0.25s ease;
-}
-
-.apple-stem {
-  position: absolute;
-  top: -9px;
-  left: 22px;
-  width: 5px;
-  height: 14px;
-  background: #111;
-  border-radius: 999px;
-  transform: rotate(18deg);
-  z-index: 4;
-}
-
-.apple-leaf {
-  position: absolute;
-  top: -8px;
-  left: 27px;
-  width: 14px;
-  height: 8px;
-  background: #111;
-  border-radius: 100% 0 100% 0;
-  transform: rotate(-18deg);
-  z-index: 4;
-}
 
 .apple-loading {
   position: fixed;
@@ -1965,13 +1902,13 @@ button {
 }
 
 .apple-loader {
-  width: 58px;
-  height: 58px;
+  width: 64px;
+  height: 64px;
   filter: drop-shadow(0 8px 18px rgba(0,0,0,0.22));
 }
 
 .apple-bg {
-  fill: #080808;
+  fill: #050505;
 }
 
 .apple-fill {
@@ -1979,5 +1916,5 @@ button {
   transform-box: fill-box;
   transform-origin: bottom;
   transform: scaleY(0);
-  transition: transform 0.3s ease;
+  transition: transform 0.25s ease;
 }
