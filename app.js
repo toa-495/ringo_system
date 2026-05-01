@@ -2069,7 +2069,10 @@ function renderQuestionManageRows(questions) {
         </span>
         ${q.answer ? `<span class="meta">回答：${escapeHtml(q.answer)}</span>` : ''}
       </div>
-      <button class="question-edit-btn" type="button" data-question-id="${q.id}">✒</button>
+      <div class="data-sub">
+  <button class="question-edit-btn" type="button" data-question-id="${q.id}">✒</button>
+  <button class="btn-danger mini-danger-btn question-delete-btn" type="button" data-question-id="${q.id}">削除</button>
+</div>
     </div>
   `).join('');
 }
@@ -2157,12 +2160,44 @@ function bindQuestionEvents(questions) {
     openQuestionModal();
   });
 
-  document.querySelectorAll('.question-edit-btn').forEach(btn => {
+    document.querySelectorAll('.question-delete-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const q = questions.find(item => String(item.id) === String(btn.dataset.questionId));
+      if (q) deleteQuestionFromUi(q);
+    });
+  });
     btn.addEventListener('click', () => {
       const q = questions.find(item => String(item.id) === String(btn.dataset.questionId));
       openQuestionModal(q);
     });
   });
+}
+
+async function deleteQuestionFromUi(question) {
+  const beforeQuestions = [...(state.allQuestions || [])];
+
+  try {
+    const ok = confirm(`「${question.question || 'この疑問'}」を削除しますか？`);
+    if (!ok) return;
+
+    closeModal();
+
+    state.allQuestions = (state.allQuestions || []).filter(item => {
+      return String(item.id) !== String(question.id);
+    });
+
+    rerenderQuestionsWithoutFetch();
+
+    await apiGet('deleteQuestion', {
+      id: question.id,
+    });
+
+  } catch (err) {
+    alert(err.message || '疑問の削除に失敗しました。');
+
+    state.allQuestions = beforeQuestions;
+    rerenderQuestionsWithoutFetch();
+  }
 }
 
 function openQuestionModal(question = null) {
@@ -2345,7 +2380,10 @@ function renderMemoRows(memos) {
             <span>No.${escapeHtml(memo.no || '')}</span>
           </div>
         </button>
-        <button class="memo-edit-btn" type="button" data-memo-id="${escapeHtml(memo.id)}">✒</button>
+        <div class="data-sub">
+  <button class="memo-edit-btn" type="button" data-memo-id="${escapeHtml(memo.id)}">✒</button>
+  <button class="btn-danger mini-danger-btn memo-delete-btn" type="button" data-memo-id="${escapeHtml(memo.id)}">削除</button>
+</div>
       </div>
     `;
   }).join('');
@@ -2380,6 +2418,12 @@ function bindMemoEvents(memos) {
       openMemoEditModal(memo);
     });
   });
+    document.querySelectorAll('.memo-delete-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const memo = memos.find(item => String(item.id) === String(btn.dataset.memoId));
+      if (memo) deleteMemoFromUi(memo);
+    });
+  });
 }
 
 function openMemoDetailModal(memo) {
@@ -2404,6 +2448,33 @@ function openMemoDetailModal(memo) {
   document.getElementById('memo-edit-from-detail-btn').addEventListener('click', () => {
     openMemoEditModal(memo);
   });
+}
+
+async function deleteMemoFromUi(memo) {
+  const beforeMemos = [...(state.allMemos || [])];
+
+  try {
+    const ok = confirm(`「${memo.title || 'このメモ'}」を削除しますか？`);
+    if (!ok) return;
+
+    closeModal();
+
+    state.allMemos = (state.allMemos || []).filter(item => {
+      return String(item.id) !== String(memo.id);
+    });
+
+    rerenderMemosWithoutFetch();
+
+    await apiGet('deleteMemo', {
+      id: memo.id,
+    });
+
+  } catch (err) {
+    alert(err.message || 'メモの削除に失敗しました。');
+
+    state.allMemos = beforeMemos;
+    rerenderMemosWithoutFetch();
+  }
 }
 
 function openMemoEditModal(memo = null) {
@@ -2648,6 +2719,7 @@ function renderGuestRows(guests) {
       <div class="data-sub">
         <span>No.${escapeHtml(guest.no || '')}</span>
         <button class="guest-edit-btn" type="button" data-guest-id="${escapeHtml(guest.id)}">✒</button>
+<button class="btn-danger mini-danger-btn guest-delete-btn" type="button" data-guest-id="${escapeHtml(guest.id)}">削除</button>
       </div>
     </div>
   `).join('');
@@ -2675,6 +2747,39 @@ function bindGuestEvents(guests) {
       openGuestEditModal(guest);
     });
   });
+    document.querySelectorAll('.guest-delete-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const guest = guests.find(item => String(item.id) === String(btn.dataset.guestId));
+      if (guest) deleteGuestFromUi(guest);
+    });
+  });
+}
+
+async function deleteGuestFromUi(guest) {
+  const beforeGuests = [...(state.allGuests || [])];
+
+  try {
+    const ok = confirm(`「${guest.name || 'この人'}」を削除しますか？`);
+    if (!ok) return;
+
+    closeModal();
+
+    state.allGuests = (state.allGuests || []).filter(item => {
+      return String(item.id) !== String(guest.id);
+    });
+
+    rerenderGuestsWithoutFetch();
+
+    await apiGet('deleteGuest', {
+      id: guest.id,
+    });
+
+  } catch (err) {
+    alert(err.message || '来る人リストの削除に失敗しました。');
+
+    state.allGuests = beforeGuests;
+    rerenderGuestsWithoutFetch();
+  }
 }
 
 function openGuestEditModal(guest = null) {
