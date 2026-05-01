@@ -795,12 +795,56 @@ if (bulkForm) {
 }
 }
 
-function buildOptimisticTask(task, index = 0) {
-  const parentId = task.parentTask
-    ? String(task.parentTask).split('.')[0]
-    : '';
+function extractNoFromParentTaskLabel(parentTask) {
+  const text = String(parentTask || '').trim();
+  if (!text) return '';
+  return String(text.split('.')[0] || '').trim();
+}
 
-  const tempKey = `${Date.now()}_${index}_${Math.random().toString(36).slice(2, 7)}`;
+function findTaskByNo(no) {
+  const targetNo = String(no || '').trim();
+  if (!targetNo) return null;
+
+  return (state.allTasksForWbs || []).find(task => {
+    return String(task.no || '').trim() === targetNo;
+  }) || null;
+}
+
+function getParentIdFromParentTaskLabel(parentTask) {
+  const parentNo = extractNoFromParentTaskLabel(parentTask);
+  const parentTaskObj = findTaskByNo(parentNo);
+
+  return parentTaskObj ? String(parentTaskObj.id || '').trim() : '';
+}
+
+function countDirectChildrenByParentId(parentId, ignoreTaskNo = '') {
+  const targetParentId = String(parentId || '').trim();
+  if (!targetParentId) return 0;
+
+  const ignoreNo = String(ignoreTaskNo || '').trim();
+
+  return (state.allTasksForWbs || []).filter(task => {
+    const taskNo = String(task.no || '').trim();
+
+    if (ignoreNo && taskNo === ignoreNo) return false;
+
+    return getTaskParentId(task) === targetParentId;
+  }).length;
+}
+
+function makeOptimisticId(parentTask, ignoreTaskNo = '') {
+  const parentId = getParentIdFromParentTaskLabel(parentTask);
+
+  // 親タスク未設定の場合は、IDを空にする
+  // buildTaskTree側でID空白タスクは下に回る
+  if (!parentId) return '';
+
+  const childCount = countDirectChildrenByParentId(parentId, ignoreTaskNo);
+  return `${parentId}-${childCount + 1}`;
+}
+
+function buildOptimisticTask(task, index = 0) {
+  const optimisticId = makeOptimisticId(task.parentTask || '');
 
   return {
     no: '',
@@ -814,10 +858,11 @@ function buildOptimisticTask(task, index = 0) {
     progress: task.progress || '',
     memo: task.memo || '',
     daysUntilDue: '',
-    id: parentId ? `${parentId}-tmp${tempKey}` : `tmp_${tempKey}`,
-    level: parentId ? String(parentId).split('-').length + 1 : 1,
-    parentId,
+    id: optimisticId,
+    level: optimisticId ? optimisticId.split('-').length : 1,
+    parentId: getTaskParentId({ id: optimisticId }),
     _optimistic: true,
+    _optimisticIndex: index,
   };
 }
 
@@ -840,26 +885,54 @@ function updateOptimisticTaskInState(data) {
   const no = String(data.no || '').trim();
   if (!no) return;
 
+  const targetTask = state.allTasksForWbs.find(task => {
+    return String(task.no || '').trim() === no;
+  });
+
+  if (!targetTask) return;
+
+  const oldId = String(targetTask.id || '').trim();
+  const parentTask = 'parentTask' in data ? data.parentTask || '' : targetTask.parentTask || '';
+  const newId = makeOptimisticId(parentTask, no);
+
   state.allTasksForWbs = state.allTasksForWbs.map(task => {
-    if (String(task.no || '').trim() !== no) return task;
+    const taskNo = String(task.no || '').trim();
+    const taskId = String(task.id || '').trim();
 
-    const parentTask = 'parentTask' in data ? data.parentTask || '' : task.parentTask || '';
-    const parentId = parentTask ? String(parentTask).split('.')[0] : '';
+    // 変更対象タスク
+    if (taskNo === no) {
+      return {
+        ...task,
+        taskName: 'taskName' in data ? data.taskName || '' : task.taskName,
+        parentTask,
+        id: newId,
+        level: newId ? newId.split('-').length : 1,
+        parentId: getTaskParentId({ id: newId }),
+        assignee: 'assignee' in data ? data.assignee || '' : task.assignee,
+        dueDate: 'dueDate' in data ? data.dueDate || '' : task.dueDate,
+        targetDate: 'targetDate' in data ? data.targetDate || '' : task.targetDate,
+        startPlan: 'startPlan' in data ? data.startPlan || '' : task.startPlan,
+        status: 'status' in data ? data.status || '' : task.status,
+        progress: 'progress' in data ? data.progress || '' : task.progress,
+        memo: 'memo' in data ? data.memo || '' : task.memo,
+        _optimistic: true,
+      };
+    }
 
-    return {
-      ...task,
-      taskName: 'taskName' in data ? data.taskName || '' : task.taskName,
-      parentTask,
-      parentId,
-      assignee: 'assignee' in data ? data.assignee || '' : task.assignee,
-      dueDate: 'dueDate' in data ? data.dueDate || '' : task.dueDate,
-      targetDate: 'targetDate' in data ? data.targetDate || '' : task.targetDate,
-      startPlan: 'startPlan' in data ? data.startPlan || '' : task.startPlan,
-      status: 'status' in data ? data.status || '' : task.status,
-      progress: 'progress' in data ? data.progress || '' : task.progress,
-      memo: 'memo' in data ? data.memo || '' : task.memo,
-      _optimistic: true,
-    };
+    // 変更対象の子孫タスクも、仮IDの枝を付け替える
+    if (oldId && newId && taskId.startsWith(`${oldId}-`)) {
+      const replacedId = taskId.replace(oldId, newId);
+
+      return {
+        ...task,
+        id: replacedId,
+        level: replacedId.split('-').length,
+        parentId: getTaskParentId({ id: replacedId }),
+        _optimistic: true,
+      };
+    }
+
+    return task;
   });
 }
 
