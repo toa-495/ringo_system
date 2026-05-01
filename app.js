@@ -97,7 +97,6 @@ function setAppleProgress(percent) {
   const safePercent = Math.max(0, Math.min(100, Number(percent) || 0));
   mask.style.height = `${safePercent}%`;
 }
-  if (!fill) return;
 
   const safePercent = Math.max(0, Math.min(100, Number(percent) || 0));
   fill.style.height = `${safePercent}%`;
