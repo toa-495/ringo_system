@@ -1877,6 +1877,72 @@ async function loadQuestions(status = state.questionStatus || 'unresolved') {
   }
 }
 
+function makeTempId(prefix) {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+}
+
+function rerenderQuestionsWithoutFetch() {
+  const questions = filterQuestionsByStatus(state.allQuestions || [], state.questionStatus);
+
+  const list = document.querySelector('.question-list');
+  if (list) list.innerHTML = renderQuestionManageRows(questions);
+
+  bindQuestionEvents(questions);
+  bindQuestionRefreshButton();
+}
+
+function rerenderMemosWithoutFetch() {
+  const list = document.querySelector('.memo-list');
+  if (list) list.innerHTML = renderMemoRows(state.allMemos || []);
+
+  bindMemoEvents(state.allMemos || []);
+  bindMemoRefreshButton();
+}
+
+function rerenderGuestsWithoutFetch() {
+  const list = document.querySelector('.guest-list');
+  if (list) list.innerHTML = renderGuestRows(state.allGuests || []);
+
+  bindGuestEvents(state.allGuests || []);
+  bindGuestRefreshButton();
+}
+
+function rerenderMilestonesWithoutFetch() {
+  if (!state.milestoneCache) return;
+
+  const wrap = document.querySelector('.combined-gantt-wrap');
+  if (!wrap) return;
+
+  wrap.innerHTML = renderCombinedMilestoneGantt(
+    state.milestoneCache.milestoneData,
+    state.milestoneCache.ganttData
+  );
+
+  bindMilestoneGridEvents();
+  bindMilestoneRefreshButton();
+}
+
+function rerenderCalendarWithoutFetch() {
+  if (!state.calendarCache) return;
+
+  const content = document.getElementById('calendar-content');
+  if (!content) return;
+
+  const activeMode = document.querySelector('[data-calendar-mode].active')?.dataset.calendarMode || 'grid';
+
+  content.innerHTML = activeMode === 'list'
+    ? renderCalendarList(state.calendarCache)
+    : renderCalendarGrid(state.calendarCache);
+
+  bindCalendarEditEvents();
+  bindCalendarRefreshButton();
+
+  if (activeMode === 'grid') {
+    scrollCalendarToToday();
+    bindCalendarSizeControl();
+  }
+}
+
 function filterQuestionsByStatus(questions, status) {
   const list = questions || [];
 
@@ -2061,29 +2127,61 @@ function openQuestionModal(question = null) {
       return;
     }
 
-    try {
-      setLoading(true);
+try {
       setError('');
 
+      const beforeQuestions = [...(state.allQuestions || [])];
+
+      closeModal();
+
       if (isEdit) {
+        state.allQuestions = (state.allQuestions || []).map(item => {
+          if (String(item.id) !== String(question.id)) return item;
+          return { ...item, ...data };
+        });
+
+        rerenderQuestionsWithoutFetch();
+
         await apiGet('updateQuestion', {
           id: question.id,
           data: JSON.stringify(data),
         });
       } else {
-        await apiGet('addQuestion', {
+        const tempId = makeTempId('question');
+
+        state.allQuestions = [
+          ...(state.allQuestions || []),
+          {
+            id: tempId,
+            no: '',
+            ...data,
+            _optimistic: true,
+          },
+        ];
+
+        rerenderQuestionsWithoutFetch();
+
+        const result = await apiGet('addQuestion', {
           data: JSON.stringify(data),
         });
+
+        if (result?.row) {
+          state.allQuestions = (state.allQuestions || []).map(item => {
+            if (item.id !== tempId) return item;
+            return { ...item, id: result.row, _optimistic: false };
+          });
+          rerenderQuestionsWithoutFetch();
+        }
       }
 
-      closeModal();
-state.allQuestions = null;
-await loadQuestions(state.questionStatus);
     } catch (err) {
       console.error(err);
       setError(err.message || '疑問の保存に失敗しました。');
-    } finally {
-      setLoading(false);
+
+      if (typeof beforeQuestions !== 'undefined') {
+        state.allQuestions = beforeQuestions;
+        rerenderQuestionsWithoutFetch();
+      }
     }
   });
 }
@@ -2240,29 +2338,62 @@ function openMemoEditModal(memo = null) {
       return;
     }
 
-    try {
-      setLoading(true);
+try {
       setError('');
 
+      const beforeMemos = [...(state.allMemos || [])];
+
+      closeModal();
+
       if (isEdit) {
+        state.allMemos = (state.allMemos || []).map(item => {
+          if (String(item.id) !== String(memo.id)) return item;
+          return { ...item, ...data };
+        });
+
+        rerenderMemosWithoutFetch();
+
         await apiGet('updateMemo', {
           id: memo.id,
           data: JSON.stringify(data),
         });
       } else {
-        await apiGet('addMemo', {
+        const tempId = makeTempId('memo');
+
+        state.allMemos = [
+          ...(state.allMemos || []),
+          {
+            id: tempId,
+            no: '',
+            ...data,
+            _optimistic: true,
+          },
+        ];
+
+        rerenderMemosWithoutFetch();
+
+        const result = await apiGet('addMemo', {
           data: JSON.stringify(data),
         });
+
+        if (result?.row) {
+          state.allMemos = (state.allMemos || []).map(item => {
+            if (item.id !== tempId) return item;
+            return { ...item, id: result.row, _optimistic: false };
+          });
+          rerenderMemosWithoutFetch();
+        }
       }
 
-      closeModal();
-state.allMemos = null;
-await loadMemos();
     } catch (err) {
       console.error(err);
       setError(err.message || 'メモの保存に失敗しました。');
-    } finally {
-      setLoading(false);
+
+      if (typeof beforeMemos !== 'undefined') {
+        state.allMemos = beforeMemos;
+        rerenderMemosWithoutFetch();
+      }
+    }
     }
   });
 }
@@ -2503,29 +2634,61 @@ function openGuestEditModal(guest = null) {
       return;
     }
 
-    try {
-      setLoading(true);
+try {
       setError('');
 
+      const beforeGuests = [...(state.allGuests || [])];
+
+      closeModal();
+
       if (isEdit) {
+        state.allGuests = (state.allGuests || []).map(item => {
+          if (String(item.id) !== String(guest.id)) return item;
+          return { ...item, ...data };
+        });
+
+        rerenderGuestsWithoutFetch();
+
         await apiGet('updateGuest', {
           id: guest.id,
           data: JSON.stringify(data),
         });
       } else {
-        await apiGet('addGuest', {
+        const tempId = makeTempId('guest');
+
+        state.allGuests = [
+          ...(state.allGuests || []),
+          {
+            id: tempId,
+            no: '',
+            ...data,
+            _optimistic: true,
+          },
+        ];
+
+        rerenderGuestsWithoutFetch();
+
+        const result = await apiGet('addGuest', {
           data: JSON.stringify(data),
         });
+
+        if (result?.row) {
+          state.allGuests = (state.allGuests || []).map(item => {
+            if (item.id !== tempId) return item;
+            return { ...item, id: result.row, _optimistic: false };
+          });
+          rerenderGuestsWithoutFetch();
+        }
       }
 
-      closeModal();
-state.allGuests = null;
-await loadGuests();
     } catch (err) {
       console.error(err);
       setError(err.message || '来る人リストの保存に失敗しました。');
-    } finally {
-      setLoading(false);
+
+      if (typeof beforeGuests !== 'undefined') {
+        state.allGuests = beforeGuests;
+        rerenderGuestsWithoutFetch();
+      }
     }
   });
 }
@@ -2751,9 +2914,23 @@ function openMilestoneCellEditModal(cell) {
   document.getElementById('milestone-cell-save-btn').addEventListener('click', async () => {
     const value = document.getElementById('milestone-cell-value').value.trim();
 
-    try {
-      setLoading(true);
+try {
       setError('');
+
+      const beforeMilestoneCache = JSON.parse(JSON.stringify(state.milestoneCache || {}));
+
+      closeModal();
+
+      const sheetRow = Number(cell.row);
+      const sheetCol = Number(cell.col);
+      const rowIndex = sheetRow - 2;
+      const colIndex = sheetCol - 3;
+
+      if (state.milestoneCache?.milestoneData?.rows?.[rowIndex]) {
+        state.milestoneCache.milestoneData.rows[rowIndex][colIndex] = value;
+      }
+
+      rerenderMilestonesWithoutFetch();
 
       await apiGet('updateMilestoneCell', {
         row: cell.row,
@@ -2761,14 +2938,14 @@ function openMilestoneCellEditModal(cell) {
         value,
       });
 
-      closeModal();
-state.milestoneCache = null;
-await loadMilestones();
     } catch (err) {
       console.error(err);
       setError(err.message || 'マイルストーンの保存に失敗しました。');
-    } finally {
-      setLoading(false);
+
+      if (typeof beforeMilestoneCache !== 'undefined') {
+        state.milestoneCache = beforeMilestoneCache;
+        rerenderMilestonesWithoutFetch();
+      }
     }
   });
 }
@@ -3121,9 +3298,31 @@ function openCalendarEventEditModal(item) {
   document.getElementById('calendar-event-save-btn').addEventListener('click', async () => {
     const value = document.getElementById('calendar-event-value').value.trim();
 
-    try {
-      setLoading(true);
+try {
       setError('');
+
+      const beforeCalendarCache = JSON.parse(JSON.stringify(state.calendarCache || {}));
+
+      closeModal();
+
+      const row = Number(item.row);
+      const col = Number(item.col);
+
+      (state.calendarCache?.weeks || []).forEach(week => {
+        (week.eventRow || []).forEach(eventCell => {
+          if (Number(eventCell.row) === row && Number(eventCell.col) === col) {
+            eventCell.text = value;
+          }
+        });
+      });
+
+      (state.calendarCache?.events || []).forEach(eventItem => {
+        if (Number(eventItem.row) === row && Number(eventItem.col) === col) {
+          eventItem.text = value;
+        }
+      });
+
+      rerenderCalendarWithoutFetch();
 
       await apiGet('updateCalendarEvent', {
         row: item.row,
@@ -3131,14 +3330,14 @@ function openCalendarEventEditModal(item) {
         value,
       });
 
-      closeModal();
-state.calendarCache = null;
-await loadCalendar();
     } catch (err) {
       console.error(err);
       setError(err.message || '予定の保存に失敗しました。');
-    } finally {
-      setLoading(false);
+
+      if (typeof beforeCalendarCache !== 'undefined') {
+        state.calendarCache = beforeCalendarCache;
+        rerenderCalendarWithoutFetch();
+      }
     }
   });
 }
