@@ -2757,9 +2757,15 @@ function renderExpenseRows(expenses) {
             ${expense.amount ? ` / ${escapeHtml(formatExpenseAmount(expense.amount))}円` : ''}
           </span>
           <span class="meta">
-            ${expense.settled ? '精算済' : '未精算'}
-            ${expense.receiptUrl ? ' / レシートあり' : ' / レシートなし'}
-          </span>
+  ${expense.settled ? '精算済' : '未精算'}
+  ${
+    expense.receiptUrl === '__UPLOADING__'
+      ? ' / アップロード中'
+      : expense.receiptUrl
+        ? ' / レシートあり'
+        : ' / レシートなし'
+  }
+</span>
         </div>
         <div class="data-sub">
           <span>No.${escapeHtml(expense.no || '')}</span>
@@ -2838,6 +2844,7 @@ function bindExpenseEvents(expenses) {
 
 function openExpenseDetailModal(expense) {
   const receiptUrl = String(expense.receiptUrl || '').trim();
+  const hasValidReceiptUrl = receiptUrl && receiptUrl !== '__UPLOADING__';
 
   openModal(`
     <p class="eyebrow">経費詳細</p>
@@ -2850,14 +2857,18 @@ function openExpenseDetailModal(expense) {
       ${renderDetailRow('レシート', receiptUrl ? '登録あり' : '未登録')}
     </div>
 
-    ${receiptUrl ? `
-      <div class="modal-actions">
-        <a class="primary-btn" href="${escapeHtml(receiptUrl)}" target="_blank" rel="noopener">
-          レシートを開く
-        </a>
-        <button id="expense-edit-from-detail-btn" class="btn-secondary" type="button">編集</button>
-      </div>
-    ` : `
+    ${hasValidReceiptUrl ? `
+  <div class="modal-actions">
+    <a class="primary-btn" href="${escapeHtml(receiptUrl)}" target="_blank" rel="noopener">
+      レシートを開く
+    </a>
+    <button id="expense-edit-from-detail-btn" class="btn-secondary" type="button">編集</button>
+  </div>
+` : `
+  <div class="modal-actions">
+    <button id="expense-edit-from-detail-btn" class="btn-secondary" type="button">編集</button>
+  </div>
+`}
       <div class="modal-actions">
         <button id="expense-edit-from-detail-btn" class="btn-secondary" type="button">編集</button>
       </div>
@@ -2993,11 +3004,38 @@ function openExpenseEditModal(expense = null) {
         await deleteReceiptFile(fileId);
       }
 
-      receiptInput.value = '';
-      fileIdInput.value = '';
-      statusEl.textContent = 'レシートを削除しました。保存すると反映されます。';
+receiptInput.value = '';
+fileIdInput.value = '';
+statusEl.textContent = 'レシートを削除しました。';
 
-      document.getElementById('expense-current-receipt')?.remove();
+document.getElementById('expense-current-receipt')?.remove();
+
+if (isEdit && expense?.id) {
+  const updatedData = {
+    title: document.getElementById('expense-form-title').value.trim(),
+    receiptUrl: '',
+    receiptFileId: '',
+    amount: document.getElementById('expense-form-amount').value.trim(),
+    payer: document.getElementById('expense-form-payer').value.trim(),
+    settled: document.getElementById('expense-form-settled').checked,
+  };
+
+  await apiGet('updateExpense', {
+    id: expense.id,
+    data: JSON.stringify(updatedData),
+  });
+
+  state.allExpenses = (state.allExpenses || []).map(item => {
+    if (String(item.id) !== String(expense.id)) return item;
+    return {
+      ...item,
+      receiptUrl: '',
+      receiptFileId: '',
+    };
+  });
+
+  rerenderExpensesWithoutFetch();
+}
 
     } catch (err) {
       alert(err.message || 'レシート画像の削除に失敗しました。');
@@ -3020,12 +3058,16 @@ function openExpenseEditModal(expense = null) {
     }
 
     const uploadStatusText = String(statusEl.textContent || '');
-    const isUploading = uploadStatusText.includes('アップロード中');
+const isUploading = uploadStatusText.includes('アップロード中');
 
-    if (!(data.title && data.amount) && !data.receiptUrl && !isUploading) {
-      setError('タイトル＋金額、またはレシートのどちらかを入力してください。');
-      return;
-    }
+if (isUploading && !data.receiptUrl) {
+  data.receiptUrl = '__UPLOADING__';
+}
+
+if (!(data.title && data.amount) && !data.receiptUrl && !isUploading) {
+  setError('タイトル＋金額、またはレシートのどちらかを入力してください。');
+  return;
+}
 
     try {
       setError('');
@@ -3045,7 +3087,10 @@ function openExpenseEditModal(expense = null) {
         });
 
         rerenderExpensesWithoutFetch();
+        let savedExpenseRowId = null;
 
+        savedExpenseRowId = expense.id;
+        
         await apiGet('updateExpense', {
           id: expense.id,
           data: JSON.stringify(data),
@@ -3071,12 +3116,15 @@ function openExpenseEditModal(expense = null) {
         });
 
         if (result?.row) {
-          state.allExpenses = (state.allExpenses || []).map(item => {
-            if (item.id !== tempId) return item;
-            return { ...item, id: result.row, _optimistic: false };
-          });
-          rerenderExpensesWithoutFetch();
-        }
+  savedExpenseRowId = result.row;
+
+  state.allExpenses = (state.allExpenses || []).map(item => {
+    if (item.id !== tempId) return item;
+    return { ...item, id: result.row, _optimistic: false };
+  });
+
+  rerenderExpensesWithoutFetch();
+}
       }
 
     } catch (err) {
