@@ -4,6 +4,7 @@ const state = {
   lineShareText: '',
   questionStatus: 'unresolved',
   questionOptions: { owners: [], dues: [] },
+  homeUnresolvedQuestions: [],
   taskStatusTab: 'incomplete',
   taskAssigneeFilter: '',
   taskFilterUsers: [],
@@ -174,15 +175,22 @@ function renderQuestionRows(questions) {
     const text = escapeHtml(question.question || question.content || '無題の疑問');
     const owner = escapeHtml(question.owner || question.assignee || question.questioner || '未定');
     const due = escapeHtml(question.due || question.priority || question.deadline || '期限未設定');
+    const answer = escapeHtml(question.answer || '');
 
     return `
-      <div class="data-row question-row static-row">
+      <div class="data-row question-row">
         <div class="data-main">
           <strong>${text}</strong>
-          <span class="meta">疑問ぬし：${owner}</span>
+          <span class="meta">疑問ぬし：${owner} / ${due}</span>
+          ${answer ? `<span class="meta">回答：${answer}</span>` : ''}
         </div>
-        <div class="data-sub">
-          <span>${due}</span>
+        <div class="data-actions">
+          <button class="mini-btn home-question-detail-btn" type="button" data-question-id="${question.id}">
+            詳細を見る
+          </button>
+          <button class="mini-btn home-question-edit-btn" type="button" data-question-id="${question.id}">
+            編集する
+          </button>
         </div>
       </div>
     `;
@@ -397,6 +405,16 @@ await loadTasks();
     } finally {
       setLoading(false);
     }
+  });
+}
+
+function bindTaskRefreshButton() {
+  const button = document.getElementById('task-refresh-btn');
+  if (!button) return;
+
+  button.addEventListener('click', async () => {
+    state.allTasksForWbs = [];
+    await loadTasks();
   });
 }
 
@@ -839,6 +857,9 @@ function renderTopInfo(topInfo) {
 async function loadView(view) {
   state.currentView = view;
 
+  if (location.hash !== `#${view}`) {
+    history.replaceState(null, '', `#${view}`);
+  }
   el.pageTitle.textContent = VIEW_TITLES[view] || 'ホーム';
 
   el.navButtons.forEach((button) => {
@@ -1405,12 +1426,15 @@ const filteredTasks = filterTasksByStatusKeepAncestors(safeTasks, state.taskStat
     el.views.tasks.innerHTML = `
       <section class="card task-manage-card">
         <div class="section-head">
-          <div>
-            <p class="eyebrow">Task Manage</p>
-            <h3>タスク関連</h3>
-            <p class="meta">${escapeHtml(activeTab.label)}${escapeHtml(filterLabel)}：${filteredTasks.length}件 / 全${safeTasks.length}件</p>
-          </div>
-        </div>
+  <div>
+    <p class="eyebrow">Task Manage</p>
+    <h3>タスク関連</h3>
+    <p class="meta">${escapeHtml(activeTab.label)}${escapeHtml(filterLabel)}：${filteredTasks.length}件 / 全${safeTasks.length}件</p>
+  </div>
+  <button id="task-refresh-btn" class="btn-secondary" type="button">
+    最新状態に更新
+  </button>
+</div>
 
         ${renderTaskAssigneeFilter()}
         ${renderTaskStatusTabs(safeTasks)}
@@ -1427,7 +1451,9 @@ const filteredTasks = filterTasksByStatusKeepAncestors(safeTasks, state.taskStat
     bindTaskStatusTabs();
     bindWbsToggles();
     bindRowModals();
+    bindHomeQuestionEvents();
     bindTaskAddButton();
+    bindTaskRefreshButton();
   } catch (err) {
     console.error(err);
     setError(err.message || 'タスクの読み込みに失敗しました。');
@@ -1453,12 +1479,16 @@ state.dueDays = days;
 document.getElementById('due-days').value = days;
 document.getElementById('due-task-title').textContent = `${days}日以内のタスク`;
 
-const [summary, dueTasks, unresolvedQuestions, lineShare] = await Promise.all([
+const [summary, dueTasks, unresolvedQuestions, lineShare, questionOptions] = await Promise.all([
   apiGet('getHomeSummary', { days }),
   apiGet('getTasksDueWithinDays', { days }),
   apiGet('getUnresolvedQuestions'),
   apiGet('getLineShareText', { days }),
+  apiGet('getQuestionOptions'),
 ]);
+
+state.questionOptions = questionOptions || { owners: [], dues: [] };
+state.homeUnresolvedQuestions = unresolvedQuestions || [];
 
     renderTopInfo(topInfo || {});
 
@@ -1515,7 +1545,11 @@ function setupHomeEvents() {
 el.sidebarOpen.addEventListener('click', openSidebar);
 el.sidebarClose.addEventListener('click', closeSidebar);
 el.sidebarBackdrop.addEventListener('click', closeSidebar);
-el.navButtons.forEach((button) => button.addEventListener('click', () => loadView(button.dataset.view)));
+el.navButtons.forEach((button) => {
+  button.addEventListener('click', () => {
+    loadView(button.dataset.view);
+  });
+});
 el.modalClose.addEventListener('click', closeModal);
 el.modal.addEventListener('click', (event) => {
   if (event.target === el.modal) closeModal();
@@ -1580,6 +1614,66 @@ function renderQuestionManageRows(questions) {
       <button class="question-edit-btn" type="button" data-question-id="${q.id}">✒</button>
     </div>
   `).join('');
+}
+
+function bindHomeQuestionEvents() {
+  document.querySelectorAll('.home-question-detail-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const q = (state.homeUnresolvedQuestions || []).find(item => {
+        return String(item.id) === String(btn.dataset.questionId);
+      });
+
+      if (!q) return;
+      openQuestionDetailModal(q);
+    });
+  });
+
+  document.querySelectorAll('.home-question-edit-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const q = (state.homeUnresolvedQuestions || []).find(item => {
+        return String(item.id) === String(btn.dataset.questionId);
+      });
+
+      if (!q) return;
+      openQuestionModal(q);
+    });
+  });
+}
+
+function openQuestionDetailModal(question) {
+  openModal(`
+    <p class="eyebrow">Question Detail</p>
+    <h3>${escapeHtml(question.question || '無題の疑問')}</h3>
+
+    <div class="detail-grid">
+      <div>
+        <span class="detail-label">疑問ぬし</span>
+        <strong>${escapeHtml(question.owner || '未定')}</strong>
+      </div>
+      <div>
+        <span class="detail-label">いつごろまでに</span>
+        <strong>${escapeHtml(question.due || '未設定')}</strong>
+      </div>
+      <div>
+        <span class="detail-label">状態</span>
+        <strong>${question.resolved === true ? '完了済' : '未完了'}</strong>
+      </div>
+      <div>
+        <span class="detail-label">回答</span>
+        <p>${escapeHtml(question.answer || '未入力')}</p>
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-secondary" type="button" id="home-question-edit-from-detail">
+        編集する
+      </button>
+    </div>
+  `);
+
+  document.getElementById('home-question-edit-from-detail')?.addEventListener('click', () => {
+    openQuestionModal(question);
+  });
 }
 
 function bindQuestionEvents(questions) {
@@ -2665,4 +2759,11 @@ function openCalendarEventEditModal(item) {
 }
 
 setupHomeEvents();
-loadView('home');
+
+const initialView = location.hash.replace('#', '') || 'home';
+loadView(VIEW_TITLES[initialView] ? initialView : 'home');
+
+window.addEventListener('hashchange', () => {
+  const view = location.hash.replace('#', '') || 'home';
+  loadView(VIEW_TITLES[view] ? view : 'home');
+});
