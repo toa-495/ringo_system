@@ -344,7 +344,7 @@ function renderTaskDetail(payload) {
 
   <div class="task-action-sub">
     <button class="btn-secondary" type="button" data-task-add-child='${escapeHtml(JSON.stringify(payload))}'>
-      傘下に追加
+      傘下にタスク追加
     </button>
 
     <button class="btn-danger" type="button" data-task-delete='${escapeHtml(JSON.stringify(payload))}'>
