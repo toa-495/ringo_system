@@ -1005,19 +1005,61 @@ async function deleteTaskFromUi(task) {
   try {
     closeModal();
 
-    const targetId = String(task.id || '').trim();
+    const deletedNo = String(task.no || '').trim();
+    const deletedId = String(task.id || '').trim();
+    const newParentTask = String(task.parentTask || '').trim();
 
-    state.allTasksForWbs = (state.allTasksForWbs || []).filter(item => {
-      const itemNo = String(item.no || '').trim();
-      const itemId = String(item.id || '').trim();
+    state.allTasksForWbs = (state.allTasksForWbs || [])
+      .filter(item => {
+        return String(item.no || '').trim() !== deletedNo;
+      })
+      .map(item => {
+        const itemId = String(item.id || '').trim();
 
-      if (itemNo === String(task.no || '').trim()) return false;
-      if (targetId && itemId.startsWith(`${targetId}-`)) {
-        return true;
-      }
+        // 削除対象の直下の子だけ、親を付け替える
+        if (deletedId && getTaskParentId(item) === deletedId) {
+          const newId = makeOptimisticId(newParentTask, String(item.no || '').trim());
 
-      return true;
-    });
+          return {
+            ...item,
+            parentTask: newParentTask,
+            id: newId,
+            level: newId ? newId.split('-').length : 1,
+            parentId: getTaskParentId({ id: newId }),
+            _optimistic: true,
+          };
+        }
+
+        // 孫以下は、直下子のID変更に合わせて枝を付け替える
+        if (deletedId && itemId.startsWith(`${deletedId}-`)) {
+          const directChildOldId = itemId.split('-').slice(0, deletedId.split('-').length + 1).join('-');
+
+          const directChild = beforeTasks.find(t => {
+            return String(t.id || '').trim() === directChildOldId;
+          });
+
+          if (!directChild) return item;
+
+          const directChildNo = String(directChild.no || '').trim();
+          const directChildNew = state.allTasksForWbs?.find(t => {
+            return String(t.no || '').trim() === directChildNo;
+          });
+
+          if (!directChildNew || !directChildNew.id) return item;
+
+          const replacedId = itemId.replace(directChildOldId, directChildNew.id);
+
+          return {
+            ...item,
+            id: replacedId,
+            level: replacedId.split('-').length,
+            parentId: getTaskParentId({ id: replacedId }),
+            _optimistic: true,
+          };
+        }
+
+        return item;
+      });
 
     rerenderTasksWithoutFetch();
 
