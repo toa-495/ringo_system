@@ -9,6 +9,12 @@ const state = {
   taskAssigneeFilter: '',
   taskFilterUsers: [],
   allTasksForWbs: [],
+  taskAssigneeCache: {},
+allQuestions: null,
+allMemos: null,
+allGuests: null,
+milestoneCache: null,
+calendarCache: null,
 };
 
 const VIEW_TITLES = {
@@ -406,7 +412,8 @@ function bindTaskRefreshButton() {
 
   button.addEventListener('click', async () => {
     state.allTasksForWbs = [];
-    await loadTasks();
+state.taskAssigneeCache = {};
+await loadTasks();
   });
 }
 
@@ -1404,9 +1411,17 @@ async function loadTasks() {
   state.allTasksForWbs = await apiGet('getTasks');
 }
 
-const tasks = state.taskAssigneeFilter
-  ? await apiGet('getTasksByAssignee', { name: state.taskAssigneeFilter })
-  : state.allTasksForWbs;
+let tasks = state.allTasksForWbs;
+
+if (state.taskAssigneeFilter) {
+  const cacheKey = state.taskAssigneeFilter;
+
+  if (!state.taskAssigneeCache[cacheKey]) {
+    state.taskAssigneeCache[cacheKey] = await apiGet('getTasksByAssignee', { name: cacheKey });
+  }
+
+  tasks = state.taskAssigneeCache[cacheKey];
+}
 
 const safeTasks = addWbsAncestorsForAssigneeFilter(tasks || []);
 const filteredTasks = filterTasksByStatusKeepAncestors(safeTasks, state.taskStatusTab || 'incomplete');
@@ -1556,8 +1571,15 @@ async function loadQuestions(status = state.questionStatus || 'unresolved') {
   setError('');
 
   try {
-    state.questionOptions = await apiGet('getQuestionOptions');
-const questions = await apiGet('getQuestions', { status });
+    if (!state.questionOptions || !(state.questionOptions.owners || []).length) {
+      state.questionOptions = await apiGet('getQuestionOptions');
+    }
+
+    if (!state.allQuestions) {
+      state.allQuestions = await apiGet('getQuestions', { status: 'all' });
+    }
+
+    const questions = filterQuestionsByStatus(state.allQuestions || [], status);
 
     el.views.questions.innerHTML = `
       <section class="card question-page">
@@ -1566,6 +1588,9 @@ const questions = await apiGet('getQuestions', { status });
             <p class="eyebrow">Questions</p>
             <h3>疑問箱</h3>
           </div>
+          <button id="question-refresh-btn" class="btn-secondary" type="button">
+            最新状態に更新
+          </button>
         </div>
 
         <div class="question-tabs">
@@ -1583,12 +1608,27 @@ const questions = await apiGet('getQuestions', { status });
     `;
 
     bindQuestionEvents(questions || []);
+    bindQuestionRefreshButton();
   } catch (err) {
     console.error(err);
     setError(err.message || '疑問箱の読み込みに失敗しました。');
   } finally {
     setLoading(false);
   }
+}
+
+function filterQuestionsByStatus(questions, status) {
+  const list = questions || [];
+
+  if (status === 'resolved') {
+    return list.filter(q => q.resolved === true || String(q.resolved).toLowerCase() === 'true');
+  }
+
+  if (status === 'all') {
+    return list;
+  }
+
+  return list.filter(q => q.resolved === false || String(q.resolved).toLowerCase() === 'false');
 }
 
 function renderQuestionManageRows(questions) {
@@ -1668,6 +1708,16 @@ function openQuestionDetailModal(question) {
 
   document.getElementById('home-question-edit-from-detail')?.addEventListener('click', () => {
     openQuestionModal(question);
+  });
+}
+
+function bindQuestionRefreshButton() {
+  const button = document.getElementById('question-refresh-btn');
+  if (!button) return;
+
+  button.addEventListener('click', async () => {
+    state.allQuestions = null;
+    await loadQuestions(state.questionStatus);
   });
 }
 
@@ -1767,7 +1817,8 @@ function openQuestionModal(question = null) {
       }
 
       closeModal();
-      await loadQuestions(state.questionStatus);
+state.allQuestions = null;
+await loadQuestions(state.questionStatus);
     } catch (err) {
       console.error(err);
       setError(err.message || '疑問の保存に失敗しました。');
@@ -1783,17 +1834,24 @@ async function loadMemos() {
   setError('');
 
   try {
-    const memos = await apiGet('getMemos');
+    if (!state.allMemos) {
+  state.allMemos = await apiGet('getMemos');
+}
+
+const memos = state.allMemos;
 
     el.views.memos.innerHTML = `
       <section class="card memo-page">
         <div class="section-head">
-          <div>
-            <p class="eyebrow">Memos</p>
-            <h3>メモページ</h3>
-            <p class="meta">DM文面・役割分担・締切メモをスマホで確認して、本文をそのままコピーできます。</p>
-          </div>
-        </div>
+  <div>
+    <p class="eyebrow">Memos</p>
+    <h3>メモページ</h3>
+    <p class="meta">DM文面・役割分担・締切メモをスマホで確認して、本文をそのままコピーできます。</p>
+  </div>
+  <button id="memo-refresh-btn" class="btn-secondary" type="button">
+    最新状態に更新
+  </button>
+</div>
 
         <div class="memo-list">
           ${renderMemoRows(memos || [])}
@@ -1804,6 +1862,7 @@ async function loadMemos() {
     `;
 
     bindMemoEvents(memos || []);
+    bindMemoRefreshButton();
   } catch (err) {
     console.error(err);
     setError(err.message || 'メモページの読み込みに失敗しました。');
@@ -1833,6 +1892,16 @@ function renderMemoRows(memos) {
       </div>
     `;
   }).join('');
+}
+
+function bindMemoRefreshButton() {
+  const button = document.getElementById('memo-refresh-btn');
+  if (!button) return;
+
+  button.addEventListener('click', async () => {
+    state.allMemos = null;
+    await loadMemos();
+  });
 }
 
 function bindMemoEvents(memos) {
@@ -1927,7 +1996,8 @@ function openMemoEditModal(memo = null) {
       }
 
       closeModal();
-      await loadMemos();
+state.allMemos = null;
+await loadMemos();
     } catch (err) {
       console.error(err);
       setError(err.message || 'メモの保存に失敗しました。');
@@ -1942,20 +2012,29 @@ async function loadMilestones() {
   setError('');
 
   try {
-    const [milestoneData, ganttData] = await Promise.all([
-      apiGet('getMilestoneGrid'),
-      apiGet('getGanttGrid'),
-    ]);
+    if (!state.milestoneCache) {
+  const [milestoneData, ganttData] = await Promise.all([
+    apiGet('getMilestoneGrid'),
+    apiGet('getGanttGrid'),
+  ]);
+
+  state.milestoneCache = { milestoneData, ganttData };
+}
+
+const { milestoneData, ganttData } = state.milestoneCache;
 
     el.views.milestones.innerHTML = `
       <section class="card milestone-page">
         <div class="section-head">
-          <div>
-            <p class="eyebrow">Milestones</p>
-            <h3>マイルストーン・ガントチャート</h3>
-            <p class="meta">横スクロールで全体を確認できます。</p>
-          </div>
-        </div>
+  <div>
+    <p class="eyebrow">Milestones</p>
+    <h3>マイルストーン・ガントチャート</h3>
+    <p class="meta">横スクロールで全体を確認できます。</p>
+  </div>
+  <button id="milestone-refresh-btn" class="btn-secondary" type="button">
+    最新状態に更新
+  </button>
+</div>
 
         <div class="combined-gantt-wrap">
           ${renderCombinedMilestoneGantt(milestoneData, ganttData)}
@@ -1964,6 +2043,7 @@ async function loadMilestones() {
     `;
 
     bindMilestoneGridEvents();
+    bindMilestoneRefreshButton();
   } catch (err) {
     console.error(err);
     setError(err.message || 'マイルストーンの読み込みに失敗しました。');
@@ -2020,22 +2100,30 @@ async function loadGuests() {
   setError('');
 
   try {
-    const [guests, guestOptions] = await Promise.all([
-  apiGet('getGuests'),
-  apiGet('getGuestOptions'),
-]);
+    if (!state.allGuests) {
+  const [guests, guestOptions] = await Promise.all([
+    apiGet('getGuests'),
+    apiGet('getGuestOptions'),
+  ]);
 
-state.guestOptions = guestOptions || { attackers: [], prospects: [] };
+  state.allGuests = guests || [];
+  state.guestOptions = guestOptions || { attackers: [], prospects: [] };
+}
+
+const guests = state.allGuests;
 
     el.views.guests.innerHTML = `
       <section class="card guest-page">
         <div class="section-head">
-          <div>
-            <p class="eyebrow">Guests</p>
-            <h3>来る人リスト</h3>
-            <p class="meta">来てほしい人・声かけ状況・見込みをスマホで確認できます。</p>
-          </div>
-        </div>
+  <div>
+    <p class="eyebrow">Guests</p>
+    <h3>来る人リスト</h3>
+    <p class="meta">来てほしい人・声かけ状況・見込みをスマホで確認できます。</p>
+  </div>
+  <button id="guest-refresh-btn" class="btn-secondary" type="button">
+    最新状態に更新
+  </button>
+</div>
 
         <div class="guest-list">
           ${renderGuestRows(guests || [])}
@@ -2046,6 +2134,7 @@ state.guestOptions = guestOptions || { attackers: [], prospects: [] };
     `;
 
     bindGuestEvents(guests || []);
+    bindGuestRefreshButton();
   } catch (err) {
     console.error(err);
     setError(err.message || '来る人リストの読み込みに失敗しました。');
@@ -2073,6 +2162,16 @@ function renderGuestRows(guests) {
       </div>
     </div>
   `).join('');
+}
+
+function bindGuestRefreshButton() {
+  const button = document.getElementById('guest-refresh-btn');
+  if (!button) return;
+
+  button.addEventListener('click', async () => {
+    state.allGuests = null;
+    await loadGuests();
+  });
 }
 
 function bindGuestEvents(guests) {
@@ -2160,7 +2259,8 @@ function openGuestEditModal(guest = null) {
       }
 
       closeModal();
-      await loadGuests();
+state.allGuests = null;
+await loadGuests();
     } catch (err) {
       console.error(err);
       setError(err.message || '来る人リストの保存に失敗しました。');
@@ -2352,6 +2452,16 @@ function syncMilestoneAndGanttScroll() {
   ganttWrap.addEventListener('scroll', () => sync(ganttWrap, milestoneWrap));
 }
 
+function bindMilestoneRefreshButton() {
+  const button = document.getElementById('milestone-refresh-btn');
+  if (!button) return;
+
+  button.addEventListener('click', async () => {
+    state.milestoneCache = null;
+    await loadMilestones();
+  });
+}
+
 function bindMilestoneGridEvents() {
   document.querySelectorAll('.milestone-editable-cell').forEach(cell => {
     cell.addEventListener('click', () => {
@@ -2392,7 +2502,8 @@ function openMilestoneCellEditModal(cell) {
       });
 
       closeModal();
-      await loadMilestones();
+state.milestoneCache = null;
+await loadMilestones();
     } catch (err) {
       console.error(err);
       setError(err.message || 'マイルストーンの保存に失敗しました。');
@@ -2407,17 +2518,24 @@ async function loadCalendar() {
   setError('');
 
   try {
-    const data = await apiGet('getCalendarGrid');
+    if (!state.calendarCache) {
+  state.calendarCache = await apiGet('getCalendarGrid');
+}
+
+const data = state.calendarCache;
 
     el.views.calendar.innerHTML = `
       <section class="card calendar-page">
         <div class="section-head">
-          <div>
-            <p class="eyebrow">Calendar</p>
-            <h3>カレンダー</h3>
-            <p class="meta">カレンダー型と縦表示を切り替えて確認できます。</p>
-          </div>
-        </div>
+  <div>
+    <p class="eyebrow">Calendar</p>
+    <h3>カレンダー</h3>
+    <p class="meta">カレンダー型と縦表示を切り替えて確認できます。</p>
+  </div>
+  <button id="calendar-refresh-btn" class="btn-secondary" type="button">
+    最新状態に更新
+  </button>
+</div>
 
         <div class="view-switch">
           <button class="view-switch-btn active" type="button" data-calendar-mode="grid">カレンダー</button>
@@ -2443,12 +2561,23 @@ async function loadCalendar() {
     scrollCalendarToToday();
     bindCalendarSizeControl();
     bindCalendarEditEvents();
+    bindCalendarRefreshButton();
   } catch (err) {
     console.error(err);
     setError(err.message || 'カレンダーの読み込みに失敗しました。');
   } finally {
     setLoading(false);
   }
+}
+
+function bindCalendarRefreshButton() {
+  const button = document.getElementById('calendar-refresh-btn');
+  if (!button) return;
+
+  button.addEventListener('click', async () => {
+    state.calendarCache = null;
+    await loadCalendar();
+  });
 }
 
 function bindCalendarSwitch(data) {
@@ -2743,7 +2872,8 @@ function openCalendarEventEditModal(item) {
       });
 
       closeModal();
-      await loadCalendar();
+state.calendarCache = null;
+await loadCalendar();
     } catch (err) {
       console.error(err);
       setError(err.message || '予定の保存に失敗しました。');
