@@ -140,35 +140,16 @@
       </div>
     </div>
 
-    <div id="loading" class="apple-loading hidden">
+<div id="loading" class="apple-loading hidden">
   <div class="apple-loader">
-    <img src="images/apple.webp" class="apple-img" alt="loading">
-    <div class="apple-red"></div>
+    <img src="images/apple.webp" class="apple-img apple-black" alt="loading">
+
+    <div class="apple-red-mask">
+      <img src="images/apple-red.webp" class="apple-img apple-red-img" alt="">
+    </div>
   </div>
 </div>
-  <defs>
-    <clipPath id="apple-clip">
-      <path d="
-        M50 20
-        C40 10 20 15 20 35
-        C20 65 40 85 50 85
-        C60 85 80 65 80 35
-        C80 15 60 10 50 20
-        Z
-        M55 18
-        C60 5 75 5 78 15
-        C70 15 60 20 55 25
-        Z
-      "/>
-    </clipPath>
-  </defs>
-
-  <g clip-path="url(#apple-clip)">
-    <rect x="0" y="0" width="100" height="100" fill="#000"/>
-    <rect class="apple-fill" x="0" y="100" width="100" height="100"/>
-  </g>
-</svg>
-</div>
+    
     <div id="error" class="error hidden"></div>
 
     <div id="modal" class="modal hidden" role="dialog" aria-modal="true">
