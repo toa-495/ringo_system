@@ -436,19 +436,31 @@ function bindTaskEditForm(originalTask, options = {}, parentOptions = []) {
     };
 
     try {
-      setLoading(true);
+      const beforeTasks = [...(state.allTasksForWbs || [])];
+      const isStructureChange =
+        String(originalTask.parentTask || '') !== String(data.parentTask || '');
+
+      closeModal();
+
+      updateOptimisticTaskInState(data);
+      rerenderTasksWithoutFetch();
+
       await apiGet('updateTask', {
         data: JSON.stringify(data),
       });
 
-      closeModal();
-
-state.allTasksForWbs = [];
-await loadTasks();
+      if (isStructureChange) {
+        state.allTasksForWbs = await apiGet('getTasks');
+        state.taskAssigneeCache = {};
+        rerenderTasksWithoutFetch();
+      }
     } catch (err) {
       alert(err.message || 'タスクの保存に失敗しました。');
-    } finally {
-      setLoading(false);
+
+      if (typeof beforeTasks !== 'undefined') {
+        state.allTasksForWbs = beforeTasks;
+        rerenderTasksWithoutFetch();
+      }
     }
   });
 }
@@ -783,18 +795,14 @@ if (bulkForm) {
 }
 }
 
-function addOptimisticTaskToState(task) {
-  if (!state.allTasksForWbs) state.allTasksForWbs = [];
-
+function buildOptimisticTask(task, index = 0) {
   const parentId = task.parentTask
     ? String(task.parentTask).split('.')[0]
     : '';
 
-  const tempId = parentId
-    ? `${parentId}-tmp${Date.now()}`
-    : `tmp_${Date.now()}`;
+  const tempKey = `${Date.now()}_${index}_${Math.random().toString(36).slice(2, 7)}`;
 
-  const tempTask = {
+  return {
     no: '',
     taskName: task.taskName || '新規タスク',
     parentTask: task.parentTask || '',
@@ -806,13 +814,53 @@ function addOptimisticTaskToState(task) {
     progress: task.progress || '',
     memo: task.memo || '',
     daysUntilDue: '',
-    id: tempId,
+    id: parentId ? `${parentId}-tmp${tempKey}` : `tmp_${tempKey}`,
     level: parentId ? String(parentId).split('-').length + 1 : 1,
     parentId,
     _optimistic: true,
   };
+}
 
-  state.allTasksForWbs.push(tempTask);
+function addOptimisticTaskToState(task) {
+  if (!state.allTasksForWbs) state.allTasksForWbs = [];
+  state.allTasksForWbs.push(buildOptimisticTask(task));
+}
+
+function addOptimisticTasksToState(tasks) {
+  if (!state.allTasksForWbs) state.allTasksForWbs = [];
+
+  tasks.forEach((task, index) => {
+    state.allTasksForWbs.push(buildOptimisticTask(task, index));
+  });
+}
+
+function updateOptimisticTaskInState(data) {
+  if (!state.allTasksForWbs) state.allTasksForWbs = [];
+
+  const no = String(data.no || '').trim();
+  if (!no) return;
+
+  state.allTasksForWbs = state.allTasksForWbs.map(task => {
+    if (String(task.no || '').trim() !== no) return task;
+
+    const parentTask = 'parentTask' in data ? data.parentTask || '' : task.parentTask || '';
+    const parentId = parentTask ? String(parentTask).split('.')[0] : '';
+
+    return {
+      ...task,
+      taskName: 'taskName' in data ? data.taskName || '' : task.taskName,
+      parentTask,
+      parentId,
+      assignee: 'assignee' in data ? data.assignee || '' : task.assignee,
+      dueDate: 'dueDate' in data ? data.dueDate || '' : task.dueDate,
+      targetDate: 'targetDate' in data ? data.targetDate || '' : task.targetDate,
+      startPlan: 'startPlan' in data ? data.startPlan || '' : task.startPlan,
+      status: 'status' in data ? data.status || '' : task.status,
+      progress: 'progress' in data ? data.progress || '' : task.progress,
+      memo: 'memo' in data ? data.memo || '' : task.memo,
+      _optimistic: true,
+    };
+  });
 }
 
 function rerenderTasksWithoutFetch() {
@@ -864,17 +912,20 @@ function rerenderTasksWithoutFetch() {
 }
 
 async function submitTaskAdd(action, data) {
-  const isSingleAdd = action === 'addTaskSingle';
+  const beforeTasks = [...(state.allTasksForWbs || [])];
 
   try {
     closeModal();
 
-    if (isSingleAdd) {
+    if (action === 'addTaskSingle') {
       addOptimisticTaskToState(data);
-      rerenderTasksWithoutFetch();
-    } else {
-      setLoading(true);
     }
+
+    if (action === 'addTaskBulk') {
+      addOptimisticTasksToState(data.rows || []);
+    }
+
+    rerenderTasksWithoutFetch();
 
     await apiGet(action, {
       data: JSON.stringify(data),
@@ -882,19 +933,13 @@ async function submitTaskAdd(action, data) {
 
     state.allTasksForWbs = await apiGet('getTasks');
     state.taskAssigneeCache = {};
-
     rerenderTasksWithoutFetch();
 
   } catch (err) {
     alert(err.message || 'タスク追加に失敗しました。');
 
-    state.allTasksForWbs = [];
-    await loadTasks();
-
-  } finally {
-    if (!isSingleAdd) {
-      setLoading(false);
-    }
+    state.allTasksForWbs = beforeTasks;
+    rerenderTasksWithoutFetch();
   }
 }
 
