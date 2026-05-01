@@ -1998,3 +1998,18 @@ button {
     grid-template-columns: 1fr 88px;
   }
 }
+
+.mini-danger-btn {
+  min-height: 34px;
+  padding: 7px 10px;
+  font-size: 0.78rem;
+  border-radius: 10px;
+}
+
+.data-sub {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
