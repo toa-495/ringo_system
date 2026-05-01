@@ -1936,3 +1936,16 @@ button {
   left: 0;
   bottom: 0;
 }
+
+.apple-loading-text {
+  margin-top: 6px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #333;
+}
+
+.apple-red-mask {
+  transition: height 0.45s ease;
+}
