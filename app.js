@@ -171,30 +171,22 @@ function renderQuestionRows(questions) {
     return '<p class="meta">未解決の疑問はありません。</p>';
   }
 
-  return questions.map((question) => {
-    const text = escapeHtml(question.question || question.content || '無題の疑問');
-    const owner = escapeHtml(question.owner || question.assignee || question.questioner || '未定');
-    const due = escapeHtml(question.due || question.priority || question.deadline || '期限未設定');
-    const answer = escapeHtml(question.answer || '');
-
-    return `
-      <div class="data-row question-row">
-        <div class="data-main">
-          <strong>${text}</strong>
-          <span class="meta">疑問ぬし：${owner} / ${due}</span>
-          ${answer ? `<span class="meta">回答：${answer}</span>` : ''}
-        </div>
-        <div class="data-actions">
-          <button class="mini-btn home-question-detail-btn" type="button" data-question-id="${question.id}">
-            詳細を見る
-          </button>
-          <button class="mini-btn home-question-edit-btn" type="button" data-question-id="${question.id}">
-            編集する
-          </button>
-        </div>
+  return questions.map(q => `
+    <div class="data-row question-manage-row home-question-row" data-home-question-detail="${escapeHtml(q.id)}">
+      <div class="data-main">
+        <strong>${escapeHtml(q.question || '無題の疑問')}</strong>
+        <span class="meta">
+          疑問ぬし：${escapeHtml(q.owner || '未定')}
+          ${q.due ? ` / ${escapeHtml(q.due)}` : ''}
+        </span>
+        ${q.answer ? `<span class="meta">回答：${escapeHtml(q.answer)}</span>` : ''}
       </div>
-    `;
-  }).join('');
+
+      <button class="question-edit-btn home-question-edit-btn" type="button" data-home-question-edit="${escapeHtml(q.id)}">
+        ✒
+      </button>
+    </div>
+  `).join('');
 }
 
 function isBlankValue(value) {
@@ -1502,6 +1494,7 @@ state.homeUnresolvedQuestions = unresolvedQuestions || [];
     state.lineShareText = lineShare?.text || '';
 
     bindRowModals();
+bindHomeQuestionEvents();
   } catch (err) {
     console.error(err);
     setError(err.message || 'ホーム画面の読み込みに失敗しました。');
@@ -1617,10 +1610,10 @@ function renderQuestionManageRows(questions) {
 }
 
 function bindHomeQuestionEvents() {
-  document.querySelectorAll('.home-question-detail-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
+  document.querySelectorAll('[data-home-question-detail]').forEach(row => {
+    row.addEventListener('click', () => {
       const q = (state.homeUnresolvedQuestions || []).find(item => {
-        return String(item.id) === String(btn.dataset.questionId);
+        return String(item.id) === String(row.dataset.homeQuestionDetail);
       });
 
       if (!q) return;
@@ -1628,10 +1621,12 @@ function bindHomeQuestionEvents() {
     });
   });
 
-  document.querySelectorAll('.home-question-edit-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
+  document.querySelectorAll('[data-home-question-edit]').forEach(btn => {
+    btn.addEventListener('click', event => {
+      event.stopPropagation();
+
       const q = (state.homeUnresolvedQuestions || []).find(item => {
-        return String(item.id) === String(btn.dataset.questionId);
+        return String(item.id) === String(btn.dataset.homeQuestionEdit);
       });
 
       if (!q) return;
