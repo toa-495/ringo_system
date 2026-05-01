@@ -1944,6 +1944,16 @@ button {
   font-weight: 700;
   letter-spacing: 0.08em;
   color: #333;
+
+  width: 80px;          /* ←これ追加（固定幅） */
+  margin-left: auto;
+  margin-right: auto;
+}
+
+#loading-dots {
+  display: inline-block;
+  width: 16px;
+  text-align: left;
 }
 
 .apple-red-mask {
