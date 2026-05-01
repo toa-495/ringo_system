@@ -1959,3 +1959,42 @@ button {
 .apple-red-mask {
   transition: height 0.45s ease;
 }
+
+.task-detail-actions {
+  display: grid;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.task-action-main {
+  width: 100%;
+  min-height: 46px;
+  font-size: 0.95rem;
+}
+
+.task-action-sub {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+.btn-danger {
+  min-height: 40px;
+  padding: 9px 13px;
+  border-radius: 12px;
+  border: 1px solid #e9b3aa;
+  background: #fff5f3;
+  color: #b42318;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.btn-danger:hover {
+  background: #ffe9e5;
+}
+
+@media (max-width: 420px) {
+  .task-action-sub {
+    grid-template-columns: 1fr 88px;
+  }
+}
