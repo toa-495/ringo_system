@@ -341,6 +341,9 @@ function renderTaskDetail(payload) {
   <button class="btn-secondary" type="button" data-task-add-child='${escapeHtml(JSON.stringify(payload))}'>
     傘下にタスク追加
   </button>
+  <button class="btn-danger" type="button" data-task-delete='${escapeHtml(JSON.stringify(payload))}'>
+  削除する
+</button>
   <button class="btn-primary" type="button" data-task-edit='${escapeHtml(JSON.stringify(payload))}'>
     編集する
   </button>
@@ -387,6 +390,18 @@ bindTaskEditForm(payload, options, parentOptions);
     });
   }
 
+  const deleteButton = document.querySelector('[data-task-delete]');
+  if (deleteButton) {
+    deleteButton.addEventListener('click', async () => {
+      const payload = JSON.parse(deleteButton.dataset.taskDelete);
+
+      const ok = confirm(`「${payload.taskName || 'このタスク'}」を削除しますか？`);
+      if (!ok) return;
+
+      await deleteTaskFromUi(payload);
+    });
+  }
+  
   const childAddButton = document.querySelector('[data-task-add-child]');
   if (childAddButton) {
     childAddButton.addEventListener('click', async () => {
@@ -982,6 +997,44 @@ function rerenderTasksWithoutFetch() {
   bindRowModals();
   bindTaskAddButton();
   bindTaskRefreshButton();
+}
+
+async function deleteTaskFromUi(task) {
+  const beforeTasks = [...(state.allTasksForWbs || [])];
+
+  try {
+    closeModal();
+
+    const targetId = String(task.id || '').trim();
+
+    state.allTasksForWbs = (state.allTasksForWbs || []).filter(item => {
+      const itemNo = String(item.no || '').trim();
+      const itemId = String(item.id || '').trim();
+
+      if (itemNo === String(task.no || '').trim()) return false;
+      if (targetId && itemId.startsWith(`${targetId}-`)) {
+        return true;
+      }
+
+      return true;
+    });
+
+    rerenderTasksWithoutFetch();
+
+    await apiGet('deleteTask', {
+      no: task.no,
+    });
+
+    state.allTasksForWbs = await apiGet('getTasks');
+    state.taskAssigneeCache = {};
+    rerenderTasksWithoutFetch();
+
+  } catch (err) {
+    alert(err.message || 'タスク削除に失敗しました。');
+
+    state.allTasksForWbs = beforeTasks;
+    rerenderTasksWithoutFetch();
+  }
 }
 
 async function submitTaskAdd(action, data) {
