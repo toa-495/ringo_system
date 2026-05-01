@@ -2013,3 +2013,27 @@ button {
   flex-wrap: wrap;
   justify-content: flex-end;
 }
+
+.hidden-file-input {
+  display: none;
+}
+
+.file-select-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.receipt-upload-box {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 12px;
+  background: rgba(255,255,255,0.7);
+}
+
+.receipt-current-box {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
