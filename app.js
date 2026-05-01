@@ -337,16 +337,20 @@ function renderTaskDetail(payload) {
         <p>${renderDetailValue(memo)}</p>
       </div>
 
-      <div class="modal-actions">
-  <button class="btn-secondary" type="button" data-task-add-child='${escapeHtml(JSON.stringify(payload))}'>
-    傘下にタスク追加
-  </button>
-  <button class="btn-danger" type="button" data-task-delete='${escapeHtml(JSON.stringify(payload))}'>
-  削除する
-</button>
-  <button class="btn-primary" type="button" data-task-edit='${escapeHtml(JSON.stringify(payload))}'>
+      <div class="task-detail-actions">
+  <button class="btn-primary task-action-main" type="button" data-task-edit='${escapeHtml(JSON.stringify(payload))}'>
     編集する
   </button>
+
+  <div class="task-action-sub">
+    <button class="btn-secondary" type="button" data-task-add-child='${escapeHtml(JSON.stringify(payload))}'>
+      傘下に追加
+    </button>
+
+    <button class="btn-danger" type="button" data-task-delete='${escapeHtml(JSON.stringify(payload))}'>
+      削除
+    </button>
+  </div>
 </div>
     </div>
   `;
