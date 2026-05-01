@@ -91,11 +91,11 @@ function apiGet(action, params = {}) {
 let appleLoadingTimer = null;
 
 function setAppleProgress(percent) {
-  const fill = document.querySelector('#loading .apple-fill');
+  const fill = document.querySelector('#loading .apple-red');
   if (!fill) return;
 
   const safePercent = Math.max(0, Math.min(100, Number(percent) || 0));
-  fill.style.transform = `scaleY(${safePercent / 100})`;
+  fill.style.height = `${safePercent}%`;
 }
 
 function setLoading(show) {
