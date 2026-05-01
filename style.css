@@ -1975,9 +1975,9 @@ button {
 }
 
 .apple-fill {
-  fill: #d93025;
+  fill: #e53935;
   transform-box: fill-box;
   transform-origin: bottom;
-  transform: translateY(calc(100% - var(--apple-progress, 0%)));
-  transition: transform 0.25s ease;
+  transform: scaleY(0);
+  transition: transform 0.3s ease;
 }
