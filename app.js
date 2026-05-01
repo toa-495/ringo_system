@@ -783,23 +783,118 @@ if (bulkForm) {
 }
 }
 
+function addOptimisticTaskToState(task) {
+  if (!state.allTasksForWbs) state.allTasksForWbs = [];
+
+  const parentId = task.parentTask
+    ? String(task.parentTask).split('.')[0]
+    : '';
+
+  const tempId = parentId
+    ? `${parentId}-tmp${Date.now()}`
+    : `tmp_${Date.now()}`;
+
+  const tempTask = {
+    no: '',
+    taskName: task.taskName || '新規タスク',
+    parentTask: task.parentTask || '',
+    assignee: task.assignee || '未定',
+    dueDate: task.dueDate || '',
+    targetDate: task.targetDate || '',
+    startPlan: task.startPlan || '',
+    status: task.status || '',
+    progress: task.progress || '',
+    memo: task.memo || '',
+    daysUntilDue: '',
+    id: tempId,
+    level: parentId ? String(parentId).split('-').length + 1 : 1,
+    parentId,
+    _optimistic: true,
+  };
+
+  state.allTasksForWbs.push(tempTask);
+}
+
+function rerenderTasksWithoutFetch() {
+  const tasks = state.allTasksForWbs || [];
+
+  const safeTasks = addWbsAncestorsForAssigneeFilter(tasks);
+  const filteredTasks = filterTasksByStatusKeepAncestors(
+    safeTasks,
+    state.taskStatusTab || 'incomplete'
+  );
+  const tree = buildTaskTree(filteredTasks);
+
+  const activeTab =
+    TASK_STATUS_TABS.find(tab => tab.key === (state.taskStatusTab || 'incomplete')) ||
+    TASK_STATUS_TABS[0];
+
+  const filterLabel = state.taskAssigneeFilter ? ` / ${state.taskAssigneeFilter}` : '';
+
+  el.views.tasks.innerHTML = `
+    <section class="card task-manage-card">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Task Manage</p>
+          <h3>タスク関連</h3>
+          <p class="meta">${escapeHtml(activeTab.label)}${escapeHtml(filterLabel)}：${filteredTasks.length}件 / 全${safeTasks.length}件</p>
+        </div>
+        <button id="task-refresh-btn" class="btn-secondary" type="button">
+          最新状態に更新
+        </button>
+      </div>
+
+      ${renderTaskAssigneeFilter()}
+      ${renderTaskStatusTabs(safeTasks)}
+
+      <div id="task-wbs-list" class="wbs-list">
+        ${renderTaskTree(tree)}
+      </div>
+
+      <button id="task-add-btn" class="floating-add-btn" type="button">＋</button>
+    </section>
+  `;
+
+  bindTaskAssigneeFilter();
+  bindTaskStatusTabs();
+  bindWbsToggles();
+  bindRowModals();
+  bindTaskAddButton();
+  bindTaskRefreshButton();
+}
+
 async function submitTaskAdd(action, data) {
+  const isSingleAdd = action === 'addTaskSingle';
+
   try {
-    setLoading(true);
+    closeModal();
+
+    if (isSingleAdd) {
+      addOptimisticTaskToState(data);
+      rerenderTasksWithoutFetch();
+    } else {
+      setLoading(true);
+    }
 
     await apiGet(action, {
       data: JSON.stringify(data),
     });
 
-    closeModal();
+    state.allTasksForWbs = await apiGet('getTasks');
+    state.taskAssigneeCache = {};
 
-    // タスク一覧のキャッシュを更新
-    state.allTasksForWbs = [];
-    await loadTasks();
+    rerenderTasksWithoutFetch();
+
   } catch (err) {
     alert(err.message || 'タスク追加に失敗しました。');
+
+    state.allTasksForWbs = [];
+    await loadTasks();
+
   } finally {
-    setLoading(false);
+    if (!isSingleAdd) {
+      setLoading(false);
+    }
   }
 }
 
