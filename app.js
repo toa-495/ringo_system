@@ -258,6 +258,15 @@ function renderDetailValue(value) {
   return escapeHtml(value);
 }
 
+function renderDetailRow(label, value) {
+  return `
+    <div>
+      <span class="detail-label">${escapeHtml(label || '')}</span>
+      <strong>${renderDetailValue(value)}</strong>
+    </div>
+  `;
+}
+
 function formatDetailDate(value) {
   if (isBlankValue(value)) return '';
 
@@ -2881,6 +2890,8 @@ function openExpenseDetailModal(expense) {
 
 function openExpenseEditModal(expense = null) {
   const isEdit = !!expense;
+  let savedExpenseRowId = isEdit ? expense.id : null;
+  let pendingUploadPromise = null;
 
   openModal(`
     <p class="eyebrow">${isEdit ? '経費を編集' : '経費を追加'}</p>
@@ -2910,10 +2921,10 @@ function openExpenseEditModal(expense = null) {
         </div>
 
         <p id="expense-upload-status" class="meta">
-          ${expense?.receiptUrl ? 'レシート登録済み' : '未アップロード'}
+          ${expense?.receiptUrl && expense.receiptUrl !== '__UPLOADING__' ? 'レシート登録済み' : '未アップロード'}
         </p>
 
-        ${expense?.receiptUrl ? `
+        ${expense?.receiptUrl && expense.receiptUrl !== '__UPLOADING__' ? `
           <div id="expense-current-receipt" class="receipt-current-box">
             <a class="btn-secondary" href="${escapeHtml(expense.receiptUrl)}" target="_blank" rel="noopener">
               登録済みレシートを開く
@@ -2926,7 +2937,7 @@ function openExpenseEditModal(expense = null) {
       </div>
 
       <label>金額
-        <input id="expense-form-amount" type="number" min="0" inputmode="numeric" value="${escapeHtml(expense?.amount || '')}">
+        <input id="expense-form-amount" type="text" inputmode="numeric" pattern="[0-9]*" value="${escapeHtml(expense?.amount || '')}">
       </label>
 
       <label>支払い者
@@ -2954,14 +2965,50 @@ function openExpenseEditModal(expense = null) {
   const receiptInput = document.getElementById('expense-form-receipt');
   const fileIdInput = document.getElementById('expense-form-file-id');
   const statusEl = document.getElementById('expense-upload-status');
+  const amountInput = document.getElementById('expense-form-amount');
 
-  const handleSelectedFile = async file => {
+  amountInput?.addEventListener('input', () => {
+    amountInput.value = amountInput.value.replace(/[^\d]/g, '');
+  });
+
+  const updateSavedExpenseWithReceipt = async result => {
+    if (!savedExpenseRowId) return;
+
+    const latest = (state.allExpenses || []).find(item => String(item.id) === String(savedExpenseRowId));
+
+    const latestData = {
+      title: latest?.title || document.getElementById('expense-form-title')?.value.trim() || '',
+      receiptUrl: result.fileUrl || '',
+      receiptFileId: result.fileId || '',
+      amount: latest?.amount || document.getElementById('expense-form-amount')?.value.trim() || '',
+      payer: latest?.payer || document.getElementById('expense-form-payer')?.value.trim() || '',
+      settled: latest?.settled || document.getElementById('expense-form-settled')?.checked || false,
+    };
+
+    await apiGet('updateExpense', {
+      id: savedExpenseRowId,
+      data: JSON.stringify(latestData),
+    });
+
+    state.allExpenses = (state.allExpenses || []).map(item => {
+      if (String(item.id) !== String(savedExpenseRowId)) return item;
+      return {
+        ...item,
+        ...latestData,
+        settledLabel: latestData.settled ? '精算済' : '未精算',
+      };
+    });
+
+    rerenderExpensesWithoutFetch();
+  };
+
+  const handleSelectedFile = file => {
     if (!file) return;
 
-    statusEl.textContent = 'アップロード中…保存ボタンは押してOKです。';
+    statusEl.textContent = 'アップロード中…保存してOKです。';
 
-    uploadReceiptFile(file)
-      .then(result => {
+    pendingUploadPromise = uploadReceiptFile(file)
+      .then(async result => {
         if (!result.ok) {
           throw new Error(result.error || 'アップロードに失敗しました。');
         }
@@ -2969,18 +3016,26 @@ function openExpenseEditModal(expense = null) {
         receiptInput.value = result.fileUrl || '';
         fileIdInput.value = result.fileId || '';
         statusEl.textContent = 'アップロード完了';
+
+        await updateSavedExpenseWithReceipt(result);
+        return result;
       })
       .catch(async err => {
         console.error(err);
-        alert(err.message || 'レシートのアップロードに失敗しました。');
+        alert(err.message || 'レシートのアップロードに失敗しました。経費項目を削除します。');
 
-        const rowId = isEdit ? expense.id : null;
+        if (savedExpenseRowId) {
+          await apiGet('deleteExpense', { id: savedExpenseRowId });
 
-        if (rowId) {
-          await deleteExpenseFromUiById(rowId, false);
-        } else {
-          closeModal();
+          state.allExpenses = (state.allExpenses || []).filter(item => {
+            return String(item.id) !== String(savedExpenseRowId);
+          });
+
+          rerenderExpensesWithoutFetch();
         }
+
+        closeModal();
+        throw err;
       });
   };
 
@@ -3003,79 +3058,86 @@ function openExpenseEditModal(expense = null) {
         await deleteReceiptFile(fileId);
       }
 
-receiptInput.value = '';
-fileIdInput.value = '';
-statusEl.textContent = 'レシートを削除しました。';
+      const title = document.getElementById('expense-form-title').value.trim();
+      const amount = document.getElementById('expense-form-amount').value.trim();
 
-document.getElementById('expense-current-receipt')?.remove();
+      receiptInput.value = '';
+      fileIdInput.value = '';
+      statusEl.textContent = 'レシートを削除しました。';
+      document.getElementById('expense-current-receipt')?.remove();
 
-if (isEdit && expense?.id) {
-  const updatedData = {
-    title: document.getElementById('expense-form-title').value.trim(),
-    receiptUrl: '',
-    receiptFileId: '',
-    amount: document.getElementById('expense-form-amount').value.trim(),
-    payer: document.getElementById('expense-form-payer').value.trim(),
-    settled: document.getElementById('expense-form-settled').checked,
-  };
+      if (isEdit && expense?.id) {
+        if (!(title && amount)) {
+          await deleteExpenseFromUiById(expense.id, false);
+          closeModal();
+          return;
+        }
 
-  await apiGet('updateExpense', {
-    id: expense.id,
-    data: JSON.stringify(updatedData),
-  });
+        const updatedData = {
+          title,
+          receiptUrl: '',
+          receiptFileId: '',
+          amount,
+          payer: document.getElementById('expense-form-payer').value.trim(),
+          settled: document.getElementById('expense-form-settled').checked,
+        };
 
-  state.allExpenses = (state.allExpenses || []).map(item => {
-    if (String(item.id) !== String(expense.id)) return item;
-    return {
-      ...item,
-      receiptUrl: '',
-      receiptFileId: '',
-    };
-  });
+        await apiGet('updateExpense', {
+          id: expense.id,
+          data: JSON.stringify(updatedData),
+        });
 
-  rerenderExpensesWithoutFetch();
-}
+        state.allExpenses = (state.allExpenses || []).map(item => {
+          if (String(item.id) !== String(expense.id)) return item;
+          return {
+            ...item,
+            ...updatedData,
+          };
+        });
 
+        rerenderExpensesWithoutFetch();
+      }
     } catch (err) {
       alert(err.message || 'レシート画像の削除に失敗しました。');
     }
   });
 
   document.getElementById('expense-save-btn').addEventListener('click', async () => {
+    const isUploading = !!pendingUploadPromise && !receiptInput.value.trim();
+
     const data = {
       title: document.getElementById('expense-form-title').value.trim(),
-      receiptUrl: receiptInput.value.trim(),
+      receiptUrl: receiptInput.value.trim() || (isUploading ? '__UPLOADING__' : ''),
       receiptFileId: fileIdInput.value.trim(),
       amount: document.getElementById('expense-form-amount').value.trim(),
       payer: document.getElementById('expense-form-payer').value.trim(),
       settled: document.getElementById('expense-form-settled').checked,
     };
 
+    if (data.amount && !/^\d+$/.test(data.amount)) {
+      setError('金額は半角数字のみで入力してください。');
+      return;
+    }
+
     if (!data.payer) {
       setError('支払い者を選択してください。');
       return;
     }
 
-    const uploadStatusText = String(statusEl.textContent || '');
-const isUploading = uploadStatusText.includes('アップロード中');
-
-if (isUploading && !data.receiptUrl) {
-  data.receiptUrl = '__UPLOADING__';
-}
-
-if (!(data.title && data.amount) && !data.receiptUrl && !isUploading) {
-  setError('タイトル＋金額、またはレシートのどちらかを入力してください。');
-  return;
-}
+    if (!(data.title && data.amount) && !data.receiptUrl) {
+      setError('タイトル＋金額、またはレシートのどちらかを入力してください。');
+      return;
+    }
 
     try {
       setError('');
-
       const beforeExpenses = [...(state.allExpenses || [])];
 
       closeModal();
 
       if (isEdit) {
+        savedExpenseRowId = expense.id;
+
         state.allExpenses = (state.allExpenses || []).map(item => {
           if (String(item.id) !== String(expense.id)) return item;
           return {
@@ -3086,10 +3148,7 @@ if (!(data.title && data.amount) && !data.receiptUrl && !isUploading) {
         });
 
         rerenderExpensesWithoutFetch();
-        let savedExpenseRowId = null;
 
-        savedExpenseRowId = expense.id;
-        
         await apiGet('updateExpense', {
           id: expense.id,
           data: JSON.stringify(data),
@@ -3115,17 +3174,16 @@ if (!(data.title && data.amount) && !data.receiptUrl && !isUploading) {
         });
 
         if (result?.row) {
-  savedExpenseRowId = result.row;
+          savedExpenseRowId = result.row;
 
-  state.allExpenses = (state.allExpenses || []).map(item => {
-    if (item.id !== tempId) return item;
-    return { ...item, id: result.row, _optimistic: false };
-  });
+          state.allExpenses = (state.allExpenses || []).map(item => {
+            if (item.id !== tempId) return item;
+            return { ...item, id: result.row, _optimistic: false };
+          });
 
-  rerenderExpensesWithoutFetch();
-}
+          rerenderExpensesWithoutFetch();
+        }
       }
-
     } catch (err) {
       console.error(err);
       setError(err.message || '経費の保存に失敗しました。');
