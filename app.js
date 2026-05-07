@@ -2397,6 +2397,7 @@ function renderMemoRows(memos) {
 
   return memos.map(memo => {
     const preview = String(memo.body || '').replace(/\s+/g, ' ').slice(0, 70);
+    const hasFile = String(memo.fileUrl || '').trim();
 
     return `
       <div class="data-row memo-row">
@@ -2404,15 +2405,16 @@ function renderMemoRows(memos) {
           <div class="data-main">
             <strong>${escapeHtml(memo.title || '無題のメモ')}</strong>
             ${preview ? `<span class="meta">${escapeHtml(preview)}${String(memo.body || '').length > 70 ? '…' : ''}</span>` : ''}
+            ${hasFile ? `<span class="meta">📎 ファイルあり</span>` : ''}
           </div>
           <div class="data-sub">
             <span>No.${escapeHtml(memo.no || '')}</span>
           </div>
         </button>
         <div class="data-sub">
-  <button class="memo-edit-btn" type="button" data-memo-id="${escapeHtml(memo.id)}">✒</button>
-  <button class="btn-danger mini-danger-btn memo-delete-btn" type="button" data-memo-id="${escapeHtml(memo.id)}">削除</button>
-</div>
+          <button class="memo-edit-btn" type="button" data-memo-id="${escapeHtml(memo.id)}">✒</button>
+          <button class="btn-danger mini-danger-btn memo-delete-btn" type="button" data-memo-id="${escapeHtml(memo.id)}">削除</button>
+        </div>
       </div>
     `;
   }).join('');
@@ -2456,10 +2458,22 @@ function bindMemoEvents(memos) {
 }
 
 function openMemoDetailModal(memo) {
+  const fileUrl = String(memo.fileUrl || '').trim();
+
   openModal(`
     <p class="eyebrow">メモ詳細</p>
     <h3>${escapeHtml(memo.title || '無題のメモ')}</h3>
     <div class="memo-body">${escapeHtml(memo.body || '').replace(/\n/g, '<br>')}</div>
+
+    ${fileUrl ? `
+      <div class="memo-file-box">
+        <p class="meta">添付ファイル</p>
+        <a class="primary-btn" href="${escapeHtml(fileUrl)}" target="_blank" rel="noopener">
+          ファイルを開く・ダウンロード
+        </a>
+      </div>
+    ` : ''}
+
     <div class="modal-actions">
       <button id="memo-copy-btn" class="primary-btn" type="button">本文をコピー</button>
       <button id="memo-edit-from-detail-btn" class="btn-secondary" type="button">編集</button>
@@ -2522,22 +2536,84 @@ function openMemoEditModal(memo = null) {
         <textarea id="memo-form-body" class="memo-form-body">${escapeHtml(memo?.body || '')}</textarea>
       </label>
 
+      <input id="memo-form-file-url" type="hidden" value="${escapeHtml(memo?.fileUrl || '')}">
+
+      <div class="receipt-upload-box">
+        <p class="meta">添付ファイル</p>
+
+        <div class="modal-actions">
+          <label class="btn-secondary file-select-label">
+            ファイルを選択
+            <input id="memo-form-file" class="hidden-file-input" type="file">
+          </label>
+        </div>
+
+        <p id="memo-upload-status" class="meta">
+          ${memo?.fileUrl ? 'ファイル登録済み' : '未アップロード'}
+        </p>
+
+        ${memo?.fileUrl ? `
+          <div id="memo-current-file" class="receipt-current-box">
+            <a class="btn-secondary" href="${escapeHtml(memo.fileUrl)}" target="_blank" rel="noopener">
+              登録済みファイルを開く
+            </a>
+            <button id="memo-remove-file-btn" class="btn-danger" type="button">
+              ファイルURLを削除
+            </button>
+          </div>
+        ` : ''}
+      </div>
+
       <button id="memo-save-btn" class="primary-btn" type="button">保存</button>
     </div>
   `);
+
+  const fileInput = document.getElementById('memo-form-file');
+  const fileUrlInput = document.getElementById('memo-form-file-url');
+  const statusEl = document.getElementById('memo-upload-status');
+
+  fileInput?.addEventListener('change', async () => {
+    const file = fileInput.files?.[0];
+    if (!file) return;
+
+    try {
+      statusEl.textContent = 'アップロード中…';
+
+      const result = await uploadMemoFile(file);
+
+      if (!result.ok) {
+        throw new Error(result.error || 'アップロードに失敗しました。');
+      }
+
+      fileUrlInput.value = result.fileUrl || '';
+      statusEl.textContent = 'アップロード完了。保存するとメモに反映されます。';
+
+    } catch (err) {
+      console.error(err);
+      statusEl.textContent = 'アップロード失敗';
+      alert(err.message || 'ファイルのアップロードに失敗しました。');
+    }
+  });
+
+  document.getElementById('memo-remove-file-btn')?.addEventListener('click', () => {
+    fileUrlInput.value = '';
+    statusEl.textContent = 'ファイルURLを削除しました。保存すると反映されます。';
+    document.getElementById('memo-current-file')?.remove();
+  });
 
   document.getElementById('memo-save-btn').addEventListener('click', async () => {
     const data = {
       title: document.getElementById('memo-form-title').value.trim(),
       body: document.getElementById('memo-form-body').value,
+      fileUrl: document.getElementById('memo-form-file-url').value.trim(),
     };
 
-    if (!data.title && !data.body.trim()) {
-      setError('タイトルか本文のどちらかを入力してください。');
+    if (!data.title && !data.body.trim() && !data.fileUrl) {
+      setError('タイトル・本文・ファイルのいずれかを入力してください。');
       return;
     }
 
-try {
+    try {
       setError('');
 
       const beforeMemos = [...(state.allMemos || [])];
@@ -4138,6 +4214,37 @@ window.addEventListener('hashchange', () => {
   const view = location.hash.replace('#', '') || 'home';
   loadView(VIEW_TITLES[view] ? view : 'home');
 });
+
+function uploadMemoFile(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = async () => {
+      try {
+        const base64 = String(reader.result).split(',')[1];
+
+        const res = await fetch(window.APP_CONFIG.GAS_BASE_URL, {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'uploadMemoFile',
+            fileName: file.name,
+            mimeType: file.type || 'application/octet-stream',
+            base64,
+          }),
+        });
+
+        const json = await res.json();
+        resolve(json);
+
+      } catch (err) {
+        reject(err);
+      }
+    };
+
+    reader.onerror = () => reject(new Error('ファイルの読み込みに失敗しました。'));
+    reader.readAsDataURL(file);
+  });
+}
 
 function uploadReceiptFile(file) {
   return new Promise((resolve, reject) => {
